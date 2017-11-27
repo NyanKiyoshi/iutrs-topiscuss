@@ -36,11 +36,6 @@ namespace ClientUdp
         {
         }
 
-        public static byte[] GetBytes(Commande commande, CommandeType type, String data)
-        {
-            return GetBytes(commande, type, "serveur", data);
-        }
-
         public override string ToString()
         {
             return "[" + commande + "," + commandeType + ",\"" + pseudo + "\"," + dataSize + ",\"" + data + "\"]";
