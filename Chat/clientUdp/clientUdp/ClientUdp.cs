@@ -6,18 +6,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace ClientUdp
-{
-    class ClientUdp
-    {
-        static void Main(string[] args)
-        {
-            try
-            {
-                
+namespace ClientUdp {
+    class ClientUdp {
+        static void Main(string[] args) {
+            try {
                 //************************************************************** Initialisation
-                string serverIP = "0.0.0.0";    // A changer
-                int serverPort = 000000 ;       // A changer
+                string serverIP = "0.0.0.0"; // A changer
+                int serverPort = 000000; // A changer
 
 
                 // Création de la socket d'écoute UDP
@@ -41,18 +36,18 @@ namespace ClientUdp
 
 
                 //************************************************************** Communications
-                
+
                 // Encodage du string dans un buffer de bytes en ASCII
                 byte[] buffer = System.Text.Encoding.ASCII.GetBytes(msg);
-                Console.WriteLine("Taille buffer : "+buffer.Length);
+                Console.WriteLine("Taille buffer : " + buffer.Length);
 
                 // Envoie du message au serveur
                 int nBytes = clientSocket.SendTo(buffer, 0, buffer.Length, SocketFlags.None, serverEP);
 
                 Console.WriteLine("Nouveau message envoye vers "
-                    + serverEP
-                    + " (" + nBytes + " octets)"
-                    + ": \"" + msg + "\"");
+                                  + serverEP
+                                  + " (" + nBytes + " octets)"
+                                  + ": \"" + msg + "\"");
 
 
                 //************************************************************** Conclusion
@@ -62,8 +57,7 @@ namespace ClientUdp
 
 
             }
-            catch (SocketException E)
-            {
+            catch (SocketException E) {
                 Console.WriteLine(E.Message);
                 Console.ReadKey();
             }
