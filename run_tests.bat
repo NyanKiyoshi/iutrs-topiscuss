@@ -1,0 +1,2 @@
+cd Tests
+dotnet test

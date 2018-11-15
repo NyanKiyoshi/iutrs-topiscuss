@@ -76,10 +76,10 @@ dotnet_style_prefer_auto_properties = true:suggestion
 # Style Definitions
 dotnet_naming_style.pascal_case_style.capitalization             = pascal_case
 
-# Use PascalCase for constant fields
-dotnet_naming_rule.constant_fields_should_be_pascal_case.severity = suggestion
-dotnet_naming_rule.constant_fields_should_be_pascal_case.symbols  = constant_fields
-dotnet_naming_rule.constant_fields_should_be_pascal_case.style    = pascal_case_style
+# Use UPPER_CASE for constant fields
+dotnet_naming_rule.constant_fields_should_be_upper_case.severity = suggestion
+dotnet_naming_rule.constant_fields_should_be_upper_case.symbols  = constant_fields
+dotnet_naming_rule.constant_fields_should_be_upper_case.style    = upper_case_style
 dotnet_naming_symbols.constant_fields.applicable_kinds            = field
 dotnet_naming_symbols.constant_fields.applicable_accessibilities  = *
 dotnet_naming_symbols.constant_fields.required_modifiers          = const
@@ -346,21 +346,6 @@ dotnet_style_prefer_is_null_check_over_reference_equality_method = true:none
 dotnet_prefer_inferred_tuple_names = true:suggestion
 dotnet_prefer_inferred_anonymous_type_member_names = true:suggestion
 dotnet_style_prefer_auto_properties = true:suggestion
-
-###############################
-# Naming Conventions          #
-###############################
-
-# Style Definitions
-dotnet_naming_style.pascal_case_style.capitalization             = pascal_case
-
-# Use PascalCase for constant fields
-dotnet_naming_rule.constant_fields_should_be_pascal_case.severity = suggestion
-dotnet_naming_rule.constant_fields_should_be_pascal_case.symbols  = constant_fields
-dotnet_naming_rule.constant_fields_should_be_pascal_case.style    = pascal_case_style
-dotnet_naming_symbols.constant_fields.applicable_kinds            = field
-dotnet_naming_symbols.constant_fields.applicable_accessibilities  = *
-dotnet_naming_symbols.constant_fields.required_modifiers          = const
 
 ###############################
 # C# Coding Conventions       #
