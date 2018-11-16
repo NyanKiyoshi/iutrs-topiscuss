@@ -14,53 +14,66 @@
 
     public class ChatMessage {
         /// <summary>
-        /// The maximal size of the buffer to be sent or be received.
+        /// The maximal size allowed for a nickname to be sent or be received.
         /// </summary>
-        /// <seealso cref="CommandType"/>
-        public const int BUFFER_SIZE = 1500;
+        /// <seealso cref="Shared.CommandType"/>
+        public const int MAX_NICKNAME_SIZE = 30;
 
         /// <summary>
-        /// The command to be sent or received (determined by <see cref="_commandType"/>).
+        /// The maximal data size allowed to be sent or be received.
         /// </summary>
-        private readonly Command _command;
+        /// <seealso cref="Shared.CommandType"/>
+        public const int MAX_DATA_SIZE = 2000;
+
+        /// <summary>
+        /// The command to be sent or received (determined by <see cref="CommandType"/>).
+        /// </summary>
+        public readonly Command Command;
 
         /// <summary>
         /// The command type, whether the received command
         /// is a request or a response.
         /// </summary>
-        /// <seealso cref="_command"/>
-        private readonly CommandType _commandType;
-
-        /// <summary>
-        /// The data buffer size to be sent or received.
-        /// </summary>
-        /// <seealso cref="_commandType"/>
-        private readonly int _dataSize;
+        /// <seealso cref="Command"/>
+        public readonly CommandType CommandType;
 
         /// <summary>
         /// The data buffer to be sent or received.
         /// </summary>
-        /// <seealso cref="_commandType"/>
-        private readonly string _data;
+        /// <seealso cref="CommandType"/>
+        public readonly string Data;
 
         /// <summary>
         /// The nickname of the sender.
         /// </summary>
-        private readonly string _nickname;
+        public readonly string Nickname;
 
         public ChatMessage(Command command, CommandType type, string data, string nickname) {
-            this._command = command;
-            this._commandType = type;
-            this._dataSize = data.Length;
-            this._data = data;
-            this._nickname = nickname;
+            this.Command = command;
+            this.CommandType = type;
+            this.Data = data;
+            this.Nickname = nickname;
         }
 
         /// <summary>
         /// Converts a received data buffer to a ChatMessage object.
         /// </summary>
         /// <param name="dataBuffer"></param>
+        /// <exception cref="NULTerminationNotFound"></exception>
         public ChatMessage(byte[] dataBuffer) {
+            ushort cursorPosition = 0;
+
+            // parse the message header: the command and the command type
+            this.Command = (Command)dataBuffer[cursorPosition++];
+            this.CommandType = (CommandType)dataBuffer[cursorPosition++];
+
+            // retrieve the nickname
+            cursorPosition = ByteUtils.GetNulTerminatedString(
+                dataBuffer, cursorPosition, MAX_NICKNAME_SIZE, out this.Nickname);
+
+            // retrieve the data
+            ByteUtils.GetNulTerminatedString(
+                dataBuffer, cursorPosition, MAX_DATA_SIZE, out this.Data);
         }
 
         /// <summary>
@@ -77,11 +90,11 @@
         /// <returns>The chat message's string representation.</returns>
         public override string ToString() {
             return
-                "[" + this._commandType.ToString("g") + "]" +   // The command type: IN or OUT
-                "[" + this._nickname + "]" +                    // The sender's nickname
-                "[" + this._command.ToString("g") + "]" +       // The command
-                "[" + this._dataSize + "] " +                   // The received data size
-                this._data;                                     // The message
+                "[" + this.CommandType.ToString("g") + "]" +   // The command type: IN or OUT
+                "[" + this.Nickname + "]" +                    // The sender's nickname
+                "[" + this.Command.ToString("g") + "]" +       // The command
+                "[" + this.Data.Length + "] " +                // The received data size
+                this.Data;                                     // The message
         }
     }
 }
