@@ -25,6 +25,13 @@ namespace Client {
             DefaultConfig.DEFAULT_SERVER_HOST, DefaultConfig.DEFAULT_SERVER_PORT);
 
         /// <summary>
+        /// The client's socket that it's using to communicate with the server.
+        /// Storing this value as a global will allow us to retrieve data from
+        /// the server later on.
+        /// </summary>
+        private static Socket _clientSocket;
+
+        /// <summary>
         /// The user's custom nickname (mandatory).
         /// </summary>
         private static string _nickname;
@@ -98,7 +105,7 @@ namespace Client {
         /// <returns>The submitted command.</returns>
         public static Command PromptCommand() {
             while (true) {
-                var inputCommand = Prompt("Command (POST, GET, SUB or UNSUB): ", 10).ToUpper();
+                var inputCommand = Prompt("Command (POST [0], GET [1], SUB [5] or UNSUB [6]): ", 10).ToUpper();
 
                 if (Enum.TryParse(inputCommand, out Command foundCommand)) {
                     return foundCommand;
@@ -115,6 +122,7 @@ namespace Client {
             var command = PromptCommand();
             var message = Prompt("Message: ", ChatMessage.MAX_DATA_SIZE - 1);  // minus NUL
 
+            // Returning the resulting chat message, from the user input
             return new ChatMessage(
                 command: command,
                 type: CommandType.REQUEST,
@@ -139,7 +147,7 @@ namespace Client {
             // Log the server endpoint that we are going to use,
             // and prepare a UDP socket to use to send message to the server.
             Console.WriteLine("Using {0}", _serverEndpoint);
-            var clientSocket =
+            _clientSocket =
                 new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
 
             try {
@@ -151,16 +159,27 @@ namespace Client {
                     var buffer = chatMessage.GetBytes();
 
                     // Send the buffer to the server
-                    clientSocket.SendTo(
+                    _clientSocket.SendTo(
                         buffer, 0, buffer.Length, SocketFlags.None, _serverEndpoint);
 
                     // Log the message to stdout
                     Console.WriteLine(chatMessage);
+
+                    // If the command was a request,
+                    // wait for a response from the server
+                    if (chatMessage.Command == Command.GET) {
+                        // Check if data is available to be received.
+                        // Stop looking for messages after 1ms.
+                        while (_clientSocket.Poll(10000, SelectMode.SelectRead)) {
+                            var receivedMessage = IPUtils.ReceiveMessage(_clientSocket, out var remoteEndPoint);
+                            Console.WriteLine(receivedMessage);
+                        }
+                    }
                 }
             }
             finally {
                 // Finally, close the socket
-                clientSocket.Close();
+                _clientSocket.Close();
             }
         }
     }
