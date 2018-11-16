@@ -1,4 +1,6 @@
-﻿namespace Shared {
+﻿using System.Text;
+
+namespace Shared {
     public enum Command {
         POST,
         GET,
@@ -48,11 +50,18 @@
         /// </summary>
         public readonly string Nickname;
 
-        public ChatMessage(Command command, CommandType type, string data, string nickname) {
+        /// <summary>
+        /// Constructor of <see cref="ChatMessage"/>.
+        /// </summary>
+        /// <param name="command">See <see cref="Command"/>.</param>
+        /// <param name="type">See <see cref="CommandType"/>.</param>
+        /// <param name="nickname">See <see cref="Nickname"/>.</param>
+        /// <param name="data">See <see cref="Data"/>.</param>
+        public ChatMessage(Command command, CommandType type, string nickname, string data) {
             this.Command = command;
             this.CommandType = type;
-            this.Data = data;
             this.Nickname = nickname;
+            this.Data = data;
         }
 
         /// <summary>
@@ -73,7 +82,7 @@
 
             // retrieve the data
             ByteUtils.GetNulTerminatedString(
-                dataBuffer, cursorPosition, MAX_DATA_SIZE, out this.Data);
+                dataBuffer, ++cursorPosition, MAX_DATA_SIZE, out this.Data);
         }
 
         /// <summary>
@@ -81,7 +90,30 @@
         /// </summary>
         /// <returns>The <see cref="ChatMessage"/> data in bytes.</returns>
         public byte[] GetBytes() {
-            return new byte[] {};
+            var arraySize =
+                2                            // header size: Command + CommandType
+                + this.Nickname.Length + 1   // nickname + NUL
+                + this.Data.Length + 1;      // data + NUL
+
+            // Create the buffer and a cursor
+            var buffer = new byte[arraySize];
+            var cursorPosition = 0;
+
+            // Add the header data
+            buffer[cursorPosition++] = (byte)this.Command;
+            buffer[cursorPosition++] = (byte)this.CommandType;
+
+            // Add the nickname + NUL termination
+            cursorPosition += Encoding.ASCII.GetBytes(
+                this.Nickname, 0, this.Nickname.Length, buffer, cursorPosition);
+            buffer[cursorPosition++] = byte.MinValue;
+
+            // Add the data + NUL termination
+            cursorPosition += Encoding.ASCII.GetBytes(
+                this.Data, 0, this.Data.Length, buffer, cursorPosition);
+            buffer[cursorPosition] = byte.MinValue;
+
+            return buffer;
         }
 
         /// <summary>
@@ -91,10 +123,9 @@
         public override string ToString() {
             return
                 "[" + this.CommandType.ToString("g") + "]" +   // The command type: IN or OUT
-                "[" + this.Nickname + "]" +                    // The sender's nickname
                 "[" + this.Command.ToString("g") + "]" +       // The command
                 "[" + this.Data.Length + "] " +                // The received data size
-                this.Data;                                     // The message
+                this.Nickname + ": " + this.Data;              // "Nickname: data message"
         }
     }
 }
