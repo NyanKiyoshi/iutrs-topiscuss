@@ -1,9 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Net;
+using System.Net.Sockets;
 using Shared;
 
 namespace Client {
+    /// <summary>
+    /// The UDP chat client's entry point class.
+    /// </summary>
     public static class ClientProgram {
         /// <summary>
         /// The parameter representing a help request.
@@ -19,6 +23,11 @@ namespace Client {
         /// </summary>
         private static IPEndPoint _serverEndpoint = new IPEndPoint(
             DefaultConfig.DEFAULT_SERVER_HOST, DefaultConfig.DEFAULT_SERVER_PORT);
+
+        /// <summary>
+        /// The user's custom nickname (mandatory).
+        /// </summary>
+        private static string _nickname;
 
         /// <summary>
         /// Prints the usage of this program.
@@ -60,15 +69,99 @@ namespace Client {
         }
 
         /// <summary>
+        ///
+        /// </summary>
+        /// <param name="promptMessage"></param>
+        /// <param name="maximalLength"></param>
+        /// <returns></returns>
+        public static string Prompt(string promptMessage, int maximalLength) {
+            var readString = string.Empty;
+
+            while (readString?.Length < 1 || readString?.Length > maximalLength) {
+                Console.Write(promptMessage);
+                readString = Console.ReadLine()?.Trim();
+            }
+
+            return readString;
+        }
+
+        /// <summary>
+        /// Prompt the user to enter a "valid" <see cref="Command"/>.
+        ///
+        /// Note that a non existing <see cref="Command"/> <see cref="Int32"/> value is still
+        /// taken as a valid value. But only a bad <see cref="String"/> name is detected.
+        ///
+        /// If a <see cref="Int32"/> value is passed, it will be cased later on by
+        /// <see cref="ChatMessage"/> to a <see cref="Byte"/>.
+        /// </summary>
+        ///
+        /// <returns>The submitted command.</returns>
+        public static Command PromptCommand() {
+            while (true) {
+                var inputCommand = Prompt("Command (POST, GET, SUB or UNSUB): ", 10).ToUpper();
+
+                if (Enum.TryParse(inputCommand, out Command foundCommand)) {
+                    return foundCommand;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Prompt the <see cref="Command"/> and <c>message</c> (<see cref="String"/>)
+        /// to be sent to the server (using <see cref="ChatMessage"/>'s message serialization).
+        /// </summary>
+        /// <returns>The built message to be sent, from the user input.</returns>
+        public static ChatMessage PromptAllFields() {
+            var command = PromptCommand();
+            var message = Prompt("Message: ", ChatMessage.MAX_DATA_SIZE - 1);  // minus NUL
+
+            return new ChatMessage(
+                command: command,
+                type: CommandType.REQUEST,
+                nickname: _nickname,
+                data: message);
+        }
+
+        /// <summary>
         /// The entry point of the UDP chat client.
         /// </summary>
         /// <param name="args"></param>
         private static void Main(string[] args) {
+            // If there are any passed argument values, parse them.
             if (args.Length > 0) {
                 ParseArgs(args);
             }
 
-            Console.WriteLine("Hello World!");
+            // Prompt for a nickname
+            _nickname = Prompt(
+                "Nickname: ", ChatMessage.MAX_NICKNAME_SIZE - 1);  // The maximal nickname length, excluding NUL
+
+            // Log the server endpoint that we are going to use,
+            // and prepare a UDP socket to use to send message to the server.
+            Console.WriteLine("Using {0}", _serverEndpoint);
+            var clientSocket =
+                new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+
+            try {
+                while (true) {
+                    // Prompt the user, what message and command to send to the server
+                    var chatMessage = PromptAllFields();
+
+                    // Convert this message to bytes
+                    var buffer = chatMessage.GetBytes();
+
+                    // Send the buffer to the server
+                    clientSocket.SendTo(
+                        buffer, 0, buffer.Length, SocketFlags.None, _serverEndpoint);
+
+                    // Log the message to stdout
+                    Console.WriteLine(chatMessage);
+                }
+            }
+            finally {
+                // Finally, close the socket
+                clientSocket.Close();
+            }
         }
     }
 }

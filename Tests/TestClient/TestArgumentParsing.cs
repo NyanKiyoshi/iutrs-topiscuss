@@ -11,7 +11,7 @@ namespace Tests.TestClient {
         /// <summary>
         /// Test <see cref="ClientProgram.ParseArgs"/> against invalid argument count,
         /// which, are expected to trigger a call to
-        /// <see cref="ClientProgram.PrintUsage"/> with the error code: <code>1</code>.
+        /// <see cref="ClientProgram.PrintUsage"/> with the error code: <tt>1</tt>.
         /// </summary>
         /// <param name="args">The passed system arguments.</param>
         [TestCase(arg: new string[]{})]
@@ -35,8 +35,8 @@ namespace Tests.TestClient {
         }
 
         /// <summary>
-        /// Test <see cref="ClientProgram.ParseArgs"/> is handling <code>--help</code>.
-        /// <see cref="ClientProgram.PrintUsage"/> should thus be called with the error code: <code>0</code>.
+        /// Test <see cref="ClientProgram.ParseArgs"/> is handling <tt>--help</tt>.
+        /// <see cref="ClientProgram.PrintUsage"/> should thus be called with the error code: <tt>0</tt>.
         /// </summary>
         [TestCase]
         public void Test_ParseArgs_GetHelp() {
@@ -58,7 +58,7 @@ namespace Tests.TestClient {
         }
 
         /// <summary>
-        /// Test <see cref="ClientProgram.ParseArgs"/> is exiting the application with <code>1</code>
+        /// Test <see cref="ClientProgram.ParseArgs"/> is exiting the application with <tt>1</tt>
         /// if the provided data is invalid.
         /// </summary>
         [TestCase]
