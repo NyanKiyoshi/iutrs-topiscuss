@@ -8,7 +8,7 @@ namespace Server {
     /// <summary>
     /// The UDP chat's server entry point.
     /// </summary>
-    internal static class ServerProgram {
+    public static class ServerProgram {
         /// <summary>
         /// The signature of a method capable of handling a dispatched event
         /// coming from a given endpoint.
@@ -34,7 +34,15 @@ namespace Server {
         /// The list of stored messages, which gets populated by <see cref="Command.GET"/>,
         /// in other words, <see cref="handle_POST"/>.
         /// </summary>
-        private static readonly List<ChatMessage> STORED_CHAT_MESSAGES = new List<ChatMessage>();
+        public static readonly List<ChatMessage> STORED_CHAT_MESSAGES = new List<ChatMessage>();
+
+        /// <summary>
+        /// Public setter for the server's <see cref="Socket"/> to listen
+        /// and manipulate. This is useful to mock the socket in tests.
+        /// </summary>
+        public static Socket ServerSocket {
+            set => _serverSocket = value;
+        }
 
         /// <summary>
         /// Logs a given formatted message into the server's stdout.
@@ -52,7 +60,7 @@ namespace Server {
         /// </summary>
         /// <param name="receivedMessage">The message that requested</param>
         /// <param name="clientEndPoint">The endpoint that requested our stored data.</param>
-        private static void handle_GET(ChatMessage receivedMessage, EndPoint clientEndPoint) {
+        public static void handle_GET(ChatMessage receivedMessage, EndPoint clientEndPoint) {
             // Send every stored message to the client
             foreach (var storedChatMessage in STORED_CHAT_MESSAGES) {
                 // Convert the message to a byte buffer
@@ -77,7 +85,7 @@ namespace Server {
         /// </summary>
         /// <param name="receivedMessage">The message received.</param>
         /// <param name="clientEndPoint">The remote sender's endpoint.</param>
-        private static void handle_POST(ChatMessage receivedMessage, EndPoint clientEndPoint) {
+        public static void handle_POST(ChatMessage receivedMessage, EndPoint clientEndPoint) {
             // Change the command type to response,
             // as we will only use it from `handle_GET` as response a message.
             receivedMessage.CommandType = CommandType.RESPONSE;
