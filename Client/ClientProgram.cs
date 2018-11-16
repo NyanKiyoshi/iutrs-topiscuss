@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
-using Castle.Core.Internal;
 using Shared;
 
 namespace Client {
@@ -28,7 +27,7 @@ namespace Client {
         /// <summary>
         /// The user's custom nickname (mandatory).
         /// </summary>
-        private static string nickname;
+        private static string _nickname;
 
         /// <summary>
         /// Prints the usage of this program.
@@ -78,14 +77,25 @@ namespace Client {
         public static string Prompt(string promptMessage, int maximalLength) {
             var readString = string.Empty;
 
-            while (readString.IsNullOrEmpty() || readString.Length > maximalLength) {
+            while (readString?.Length < 1 || readString?.Length > maximalLength) {
                 Console.Write(promptMessage);
-                readString = Console.ReadLine();  // TODO: strip the message
+                readString = Console.ReadLine()?.Trim();
             }
 
             return readString;
         }
 
+        /// <summary>
+        /// Prompt the user to enter a "valid" <see cref="Command"/>.
+        ///
+        /// Note that a non existing <see cref="Command"/> <see cref="Int32"/> value is still
+        /// taken as a valid value. But only a bad <see cref="String"/> name is detected.
+        ///
+        /// If a <see cref="Int32"/> value is passed, it will be cased later on by
+        /// <see cref="ChatMessage"/> to a <see cref="Byte"/>.
+        /// </summary>
+        ///
+        /// <returns>The submitted command.</returns>
         public static Command PromptCommand() {
             while (true) {
                 var inputCommand = Prompt("Command (POST, GET, SUB or UNSUB): ", 10).ToUpper();
@@ -108,7 +118,7 @@ namespace Client {
             return new ChatMessage(
                 command: command,
                 type: CommandType.REQUEST,
-                nickname: nickname,
+                nickname: _nickname,
                 data: message);
         }
 
@@ -123,7 +133,7 @@ namespace Client {
             }
 
             // Prompt for a nickname
-            nickname = Prompt(
+            _nickname = Prompt(
                 "Nickname: ", ChatMessage.MAX_NICKNAME_SIZE - 1);  // The maximal nickname length, excluding NUL
 
             // Log the server endpoint that we are going to use,
