@@ -9,7 +9,7 @@ namespace Tests.TestShared {
         /// if it's correctly handling every case of mixed count vs start pos, including empty results.
         ///
         /// It also ensures that the pointer is correctly returned as being
-        /// at the position of the <code>NUL</code> termination.
+        /// at the position of the <c>NUL</c> termination.
         /// </summary>
         ///
         /// <param name="startIndex">The index from which it will need to start looking from.</param>

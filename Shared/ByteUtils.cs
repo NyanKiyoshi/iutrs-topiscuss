@@ -4,15 +4,15 @@ using System.Text;
 namespace Shared {
     /// <inheritdoc />
     /// <summary>
-    /// An exception that occurs when looking for a <code>NUL termination</code>, but none is found.
+    /// An exception that occurs when looking for a <c>NUL</c> termination, but none is found.
     /// </summary>
     public class NULTerminationNotFound : SyntaxErrorException {}
 
     public class ByteUtils {
         /// <summary>
         /// Parse a string from a given bytes buffer, starting from a given point
-        /// until a <code>NUL termination</code> is found.
-        /// Throws an exception if the max byte count was reached without finding any NUL terminated string.
+        /// until a <c>NUL</c> termination is found.
+        /// Throws an exception if the max byte count was reached without finding any <c>NUL</c> terminated string.
         /// </summary>
         ///
         /// <param name="buffer">The buffer of bytes to read from.</param>
@@ -21,12 +21,12 @@ namespace Shared {
         /// <param name="foundString">The variable to store the parsed string into, if successfully parsed.</param>
         ///
         /// <returns>
-        /// The position of the <code>NUL termination</code> if any
+        /// The position of the <c>NUL</c> termination if any
         /// (<see cref="NULTerminationNotFound"/> is thrown otherwise).
         /// </returns>
         ///
         /// <exception cref="NULTerminationNotFound">
-        /// Thrown if it was unable to find a <code>NUL termination</code> in the given range.
+        /// Thrown if it was unable to find a <c>NUL</c> termination in the given range.
         /// </exception>
         public static ushort GetNulTerminatedString(
                 byte[] buffer, ushort startIndex, ushort maxCount, out string foundString) {

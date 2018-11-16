@@ -6,6 +6,9 @@ using Castle.Core.Internal;
 using Shared;
 
 namespace Client {
+    /// <summary>
+    /// The UDP chat client's entry point class.
+    /// </summary>
     public static class ClientProgram {
         /// <summary>
         /// The parameter representing a help request.
@@ -21,6 +24,11 @@ namespace Client {
         /// </summary>
         private static IPEndPoint _serverEndpoint = new IPEndPoint(
             DefaultConfig.DEFAULT_SERVER_HOST, DefaultConfig.DEFAULT_SERVER_PORT);
+
+        /// <summary>
+        /// The user's custom nickname (mandatory).
+        /// </summary>
+        private static string nickname;
 
         /// <summary>
         /// Prints the usage of this program.
@@ -88,9 +96,14 @@ namespace Client {
             }
         }
 
-        public static ChatMessage Prompt(string nickname) {
+        /// <summary>
+        /// Prompt the <see cref="Command"/> and <c>message</c> (<see cref="String"/>)
+        /// to be sent to the server (using <see cref="ChatMessage"/>'s message serialization).
+        /// </summary>
+        /// <returns>The built message to be sent, from the user input.</returns>
+        public static ChatMessage PromptAllFields() {
             var command = PromptCommand();
-            var message = Prompt("Message: ", ChatMessage.MAX_DATA_SIZE - 1);        // don't count NUL
+            var message = Prompt("Message: ", ChatMessage.MAX_DATA_SIZE - 1);  // minus NUL
 
             return new ChatMessage(
                 command: command,
@@ -104,28 +117,39 @@ namespace Client {
         /// </summary>
         /// <param name="args"></param>
         private static void Main(string[] args) {
+            // If there are any passed argument values, parse them.
             if (args.Length > 0) {
                 ParseArgs(args);
             }
 
+            // Prompt for a nickname
+            nickname = Prompt(
+                "Nickname: ", ChatMessage.MAX_NICKNAME_SIZE - 1);  // The maximal nickname length, excluding NUL
+
+            // Log the server endpoint that we are going to use,
+            // and prepare a UDP socket to use to send message to the server.
             Console.WriteLine("Using {0}", _serverEndpoint);
             var clientSocket =
                 new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
 
             try {
-                var nickname = Prompt(
-                    "Nickname: ", ChatMessage.MAX_NICKNAME_SIZE - 1);  // don't count NUL
-
                 while (true) {
-                    var chatMessage = Prompt(nickname);
+                    // Prompt the user, what message and command to send to the server
+                    var chatMessage = PromptAllFields();
+
+                    // Convert this message to bytes
                     var buffer = chatMessage.GetBytes();
+
+                    // Send the buffer to the server
                     clientSocket.SendTo(
                         buffer, 0, buffer.Length, SocketFlags.None, _serverEndpoint);
 
+                    // Log the message to stdout
                     Console.WriteLine(chatMessage);
                 }
             }
             finally {
+                // Finally, close the socket
                 clientSocket.Close();
             }
         }

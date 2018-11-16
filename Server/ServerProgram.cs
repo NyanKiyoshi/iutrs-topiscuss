@@ -61,6 +61,7 @@ namespace Server {
                 Console.WriteLine(exc.Message);
             }
             finally {
+                // Finally, close the server socking that we were listening on
                 _serverSocket.Close();
             }
         }

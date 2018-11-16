@@ -10,12 +10,12 @@ namespace Shared {
         /// <param name="inputEndpoint">The input string to parse.</param>
         /// <param name="parsedEndPoint">
         /// The result output.
-        /// Will be <code>null</code> if <see cref="inputEndpoint"/> is invalid.
+        /// Will be <c>null</c> if <see cref="inputEndpoint"/> is invalid.
         /// </param>
         ///
         /// <returns>
-        /// <code>False</code> is the string was containing invalid data,
-        /// <code>True</code> if the parsing was successful.
+        /// <c>False</c> is the string was containing invalid data,
+        /// <c>True</c> if the parsing was successful.
         /// </returns>
         public static bool TryParseEndpoint(string inputEndpoint, out IPEndPoint parsedEndPoint) {
             // Split the port from the input string, if it's provided.

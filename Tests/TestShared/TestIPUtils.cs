@@ -3,7 +3,7 @@ using Shared;
 
 namespace Tests.TestShared {
     /// <summary>
-    /// Test the <code>host[:port]</code> parsing utility of the internal IP utilities.
+    /// Test the <tt>host[:port]</tt> parsing utility of the internal IP utilities.
     /// </summary>
     public class TestIPUtils {
         /// <summary>

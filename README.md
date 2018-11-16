@@ -24,11 +24,11 @@ The project uses `doxygen` to compile the internal C# XML documentation.
 ### Installing Doxygen
 | Platform   | Version   | Reason                                           |
 |------------|-----------|--------------------------------------------------|
-| Windows(*) | == 1.8.0  | Other releases are bugged on Windows.            |
-| Unix-like  | \>= 1.8.0 | All versions are working just fine on Unix-like. |
+| Windows(*) | \>= 1.8.8 | Previous releases are bugged on Windows.         |
+| Unix-like  | \>= 1.8.4 | All versions are working just fine on Unix-like. |
 
 <p align='center'>
-    <a href='https://is.gd/2FVTMA'>Windows Download Link</a>
+    <a href='https://is.gd/q59nvx'>Windows Download Link</a>
 </p>
 
 Note: on Windows, add `doxygen` to your `PATH`.

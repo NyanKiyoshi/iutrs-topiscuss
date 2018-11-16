@@ -39,7 +39,6 @@ namespace Shared {
         /// <summary>
         /// The minimal valid buffer size to be sent or be received.
         /// </summary>
-        /// <seealso cref="Shared.CommandType"/>
         public const int MINIMAL_BUFFER_SIZE =
                 2    // header
                 + 2  // nickname + NUL
