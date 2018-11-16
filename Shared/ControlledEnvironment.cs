@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Shared {
     /// <summary>
@@ -43,8 +44,12 @@ namespace Shared {
         /// <inheritdoc />
         /// <summary>
         /// The real runtime exit function.
+        ///
+        /// This has to be excluded from test coverage, as it would exit tests,
+        /// making them uncompleted.
         /// </summary>
         /// <param name="errorCode"></param>
+        [ExcludeFromCodeCoverage]
         public override void Exit(int errorCode) {
             Environment.Exit(errorCode);
         }

@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Net;
+using System.Net.Sockets;
+using Castle.Core.Internal;
 using Shared;
 
 namespace Client {
@@ -60,6 +62,44 @@ namespace Client {
         }
 
         /// <summary>
+        ///
+        /// </summary>
+        /// <param name="promptMessage"></param>
+        /// <param name="maximalLength"></param>
+        /// <returns></returns>
+        public static string Prompt(string promptMessage, int maximalLength) {
+            var readString = string.Empty;
+
+            while (readString.IsNullOrEmpty() || readString.Length > maximalLength) {
+                Console.Write(promptMessage);
+                readString = Console.ReadLine();  // TODO: strip the message
+            }
+
+            return readString;
+        }
+
+        public static Command PromptCommand() {
+            while (true) {
+                var inputCommand = Prompt("Command (POST, GET, SUB or UNSUB): ", 10).ToUpper();
+
+                if (Enum.TryParse(inputCommand, out Command foundCommand)) {
+                    return foundCommand;
+                }
+            }
+        }
+
+        public static ChatMessage Prompt(string nickname) {
+            var command = PromptCommand();
+            var message = Prompt("Message: ", ChatMessage.MAX_DATA_SIZE - 1);        // don't count NUL
+
+            return new ChatMessage(
+                command: command,
+                type: CommandType.REQUEST,
+                nickname: nickname,
+                data: message);
+        }
+
+        /// <summary>
         /// The entry point of the UDP chat client.
         /// </summary>
         /// <param name="args"></param>
@@ -68,7 +108,26 @@ namespace Client {
                 ParseArgs(args);
             }
 
-            Console.WriteLine("Hello World!");
+            Console.WriteLine("Using {0}", _serverEndpoint);
+            var clientSocket =
+                new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+
+            try {
+                var nickname = Prompt(
+                    "Nickname: ", ChatMessage.MAX_NICKNAME_SIZE - 1);  // don't count NUL
+
+                while (true) {
+                    var chatMessage = Prompt(nickname);
+                    var buffer = chatMessage.GetBytes();
+                    clientSocket.SendTo(
+                        buffer, 0, buffer.Length, SocketFlags.None, _serverEndpoint);
+
+                    Console.WriteLine(chatMessage);
+                }
+            }
+            finally {
+                clientSocket.Close();
+            }
         }
     }
 }

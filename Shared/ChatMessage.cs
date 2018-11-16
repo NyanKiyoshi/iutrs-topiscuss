@@ -1,18 +1,27 @@
-﻿using System.Text;
+﻿using System.Collections.Generic;
+using System.Data;
+using System.Text;
 
 namespace Shared {
-    public enum Command {
-        POST,
-        GET,
-        HELP,
-        QUIT,
-        STOPSERVEUR,
-        SUBSCRIBE,
-        SUBSCRIBE_V2,
-        UNSUBSCRIBE
-    }
-
+    public enum Command {POST, GET, HELP, QUIT, STOP, SUB, SUB2, UNSUB}
     public enum CommandType {REQUEST, RESPONSE}
+
+    /// <inheritdoc />
+    /// <summary>
+    /// An exception occuring on invalid byte buffer length.
+    /// </summary>
+    public class InvalidBufferLength : SyntaxErrorException {
+        /// <inheritdoc />
+        /// <summary>
+        /// A constructor that call the <see cref="T:System.Data.SyntaxErrorException" />'s constructor
+        /// with a descriptive error message, containing the buffer length.
+        /// </summary>
+        /// <param name="buffer"></param>
+        public InvalidBufferLength(IReadOnlyCollection<byte> buffer)
+                : base(string.Format("Received an invalid length: {0}", buffer.Count)) {
+            // noop
+        }
+    }
 
     public class ChatMessage {
         /// <summary>
@@ -26,6 +35,23 @@ namespace Shared {
         /// </summary>
         /// <seealso cref="Shared.CommandType"/>
         public const int MAX_DATA_SIZE = 2000;
+
+        /// <summary>
+        /// The minimal valid buffer size to be sent or be received.
+        /// </summary>
+        /// <seealso cref="Shared.CommandType"/>
+        public const int MINIMAL_BUFFER_SIZE =
+                2    // header
+                + 2  // nickname + NUL
+                + 2  // data + NUL
+            ;
+
+        /// <summary>
+        /// The maximal valid buffer size to be sent or be received.
+        /// </summary>
+        /// <seealso cref="Shared.CommandType"/>
+        public const int FINAL_BUFFER_MAX_SIZE =
+            MINIMAL_BUFFER_SIZE + MAX_NICKNAME_SIZE + MAX_DATA_SIZE;
 
         /// <summary>
         /// The command to be sent or received (determined by <see cref="CommandType"/>).
@@ -68,9 +94,14 @@ namespace Shared {
         /// Converts a received data buffer to a ChatMessage object.
         /// </summary>
         /// <param name="dataBuffer"></param>
-        /// <exception cref="NULTerminationNotFound"></exception>
+        /// <exception cref="SyntaxErrorException"></exception>
         public ChatMessage(byte[] dataBuffer) {
             ushort cursorPosition = 0;
+
+            if (dataBuffer.Length < MINIMAL_BUFFER_SIZE
+                    || dataBuffer.Length > FINAL_BUFFER_MAX_SIZE) {
+                throw new InvalidBufferLength(buffer: dataBuffer);
+            }
 
             // parse the message header: the command and the command type
             this.Command = (Command)dataBuffer[cursorPosition++];

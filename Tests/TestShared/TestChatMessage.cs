@@ -1,10 +1,12 @@
+using System.Data;
 using NUnit.Framework;
 using Shared;
+using CommandType = Shared.CommandType;
 
 namespace Tests.TestShared {
     public class TestChatMessage {
         /// <summary>
-        /// Ensure that passing invalid <see cref="Command"/> or <see cref="CommandType"/>
+        /// Ensure that passing invalid <see cref="Command"/> or <see cref="Shared.CommandType"/>
         /// does not raise any exception.
         /// </summary>
         /// <param name="bufferToDecode">The bytes to attempt to decode.</param>
@@ -12,6 +14,30 @@ namespace Tests.TestShared {
         public void Test_ChatMessage_DeserializeInvalidCommandData(byte[] bufferToDecode) {
             var result = new ChatMessage(dataBuffer: bufferToDecode).ToString();
             Assert.AreEqual(result, "[254][255][1] H: H");
+        }
+
+        /// <summary>
+        /// Test <see cref="ChatMessage"/> deserialization again too short byte array.
+        /// </summary>
+        /// <param name="bufferToDecode">The bytes to attempt to decode.</param>
+        [TestCase(arg: new byte[] {0xFF, 0xFE, 0})]
+        [TestCase(arg: new byte[] {})]
+        public void Test_ChatMessage_DeserializeInvalidSize(byte[] bufferToDecode) {
+            Assert.Throws<InvalidBufferLength>(() => {
+                var _ = new ChatMessage(dataBuffer: bufferToDecode);
+            });
+        }
+
+        /// <summary>
+        /// Test <see cref="ChatMessage"/> deserialization again a too big byte array.
+        /// </summary>
+        [TestCase]
+        public void Test_ChatMessage_DeserializeTooBig() {
+            var arr = new byte[ChatMessage.FINAL_BUFFER_MAX_SIZE + 1];
+
+            Assert.Throws<InvalidBufferLength>(() => {
+                var _ = new ChatMessage(dataBuffer: arr);
+            });
         }
 
         /// <summary>
@@ -28,6 +54,13 @@ namespace Tests.TestShared {
             // Convert the message to bytes
             var buffer = chatMessage.GetBytes();
 
+            // Ensure the deserialization returns the exact same data
+            var newChatMessage = new ChatMessage(buffer);
+            Assert.AreEqual(chatMessage.Command, newChatMessage.Command);
+            Assert.AreEqual(chatMessage.CommandType, newChatMessage.CommandType);
+            Assert.AreEqual(chatMessage.Nickname, newChatMessage.Nickname);
+            Assert.AreEqual(chatMessage.Data, newChatMessage.Data);
+
             // Check the buffer is what we expected
             Assert.AreEqual(
                 buffer,
@@ -41,14 +74,7 @@ namespace Tests.TestShared {
 
                     // data + NUL
                     68, 97, 116, 97, byte.MinValue
-            });
-
-            // Ensure the deserialization returns the exact same data
-            var newChatMessage = new ChatMessage(buffer);
-            Assert.AreEqual(chatMessage.Command, newChatMessage.Command);
-            Assert.AreEqual(chatMessage.CommandType, newChatMessage.CommandType);
-            Assert.AreEqual(chatMessage.Nickname, newChatMessage.Nickname);
-            Assert.AreEqual(chatMessage.Data, newChatMessage.Data);
+                });
         }
 
         /// <summary>
