@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Net;
 using System.Net.Sockets;
 using Shared;
+using CommandType = Shared.CommandType;
 
 namespace Server {
     /// <summary>
@@ -123,15 +125,15 @@ namespace Server {
         /// Listens for messages and handle them.
         /// </summary>
         private static void ProcessMessages() {
-            // Wait for a message, retrieve it and decode it
-            var receivedMessage = IPUtils.ReceiveMessage(_serverSocket, out var clientEndPoint);
-
             try {
+                // Wait for a message, retrieve it and decode it
+                var receivedMessage = IPUtils.ReceiveMessage(_serverSocket, out var clientEndPoint);
+
                 // Handle the received message
                 HandleMessage(receivedMessage, clientEndPoint);
             }
-            catch (NULTerminationNotFound) {
-                Console.WriteLine("Error: received invalid message.");
+            catch (SyntaxErrorException) {
+                LogInfo("received an invalid message.");
             }
         }
 

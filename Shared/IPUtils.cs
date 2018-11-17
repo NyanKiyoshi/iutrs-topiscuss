@@ -1,3 +1,4 @@
+using System.Data;
 using System.Net;
 using System.Net.Sockets;
 
@@ -46,9 +47,10 @@ namespace Shared {
         /// (we do not want to override any existing variable with possible
         /// a malicious sender's endpoint to take over the listened server).
         /// </summary>
-        /// <param name="sourceSocket"></param>
-        /// <param name="remoteEndPoint"></param>
-        /// <returns></returns>
+        /// <param name="sourceSocket">The socket to read from.</param>
+        /// <param name="remoteEndPoint">The sender's endpoint.</param>
+        /// <returns>The received and parsed chat message.</returns>
+        /// <exception cref="SyntaxErrorException">If the received byte buffer is invalid.</exception>
         public static ChatMessage ReceiveMessage(Socket sourceSocket, out EndPoint remoteEndPoint) {
             // Create a IP address endpoint to store the client information into
             remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);

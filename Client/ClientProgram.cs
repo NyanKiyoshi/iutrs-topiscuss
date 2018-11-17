@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Net;
 using System.Net.Sockets;
 using Shared;
+using CommandType = Shared.CommandType;
 
 namespace Client {
     /// <summary>
@@ -131,6 +133,29 @@ namespace Client {
         }
 
         /// <summary>
+        /// Attempt to receive messages from the server,
+        /// will throw <see cref="SocketError"/> if it's unable to connect to the server.
+        /// </summary>
+        public static void ReceiveMessages() {
+            // Check if data is available to be received.
+            // Stop looking for messages after 1ms.
+            while (_clientSocket.Poll(10000, SelectMode.SelectRead)) {
+                EndPoint remoteEndPoint = null;
+                try {
+                    // Wait for a message, retrieve it and decode it
+                    var receivedMessage = IPUtils.ReceiveMessage(_clientSocket, out remoteEndPoint);
+
+                    // Handle the received message
+                    Console.WriteLine(receivedMessage);
+                }
+                catch (SyntaxErrorException) {
+                    Console.WriteLine(
+                        "Warning: received an invalid message from {0}", remoteEndPoint);
+                }
+            }
+        }
+
+        /// <summary>
         /// The entry point of the UDP chat client.
         /// </summary>
         /// <param name="args"></param>
@@ -168,11 +193,12 @@ namespace Client {
                     // If the command was a request,
                     // wait for a response from the server
                     if (chatMessage.Command == Command.GET) {
-                        // Check if data is available to be received.
-                        // Stop looking for messages after 1ms.
-                        while (_clientSocket.Poll(10000, SelectMode.SelectRead)) {
-                            var receivedMessage = IPUtils.ReceiveMessage(_clientSocket, out var remoteEndPoint);
-                            Console.WriteLine(receivedMessage);
+                        try {
+                            ReceiveMessages();
+                        }
+                        catch (SocketException) {
+                            Console.WriteLine(
+                                "Failed to listen for messages onto {0}", _serverEndpoint);
                         }
                     }
                 }
