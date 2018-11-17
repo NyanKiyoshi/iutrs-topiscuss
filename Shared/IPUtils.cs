@@ -1,4 +1,5 @@
 using System.Data;
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.Sockets;
 
@@ -51,6 +52,7 @@ namespace Shared {
         /// <param name="remoteEndPoint">The sender's endpoint.</param>
         /// <returns>The received and parsed chat message.</returns>
         /// <exception cref="SyntaxErrorException">If the received byte buffer is invalid.</exception>
+        [ExcludeFromCodeCoverage]
         public static ChatMessage ReceiveMessage(Socket sourceSocket, out EndPoint remoteEndPoint) {
             // Create a IP address endpoint to store the client information into
             remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);

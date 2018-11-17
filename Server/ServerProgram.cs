@@ -29,7 +29,9 @@ namespace Server {
         private static readonly Dictionary<Command, CommandHandler> COMMAND_DISPATCHERS =
             new Dictionary<Command, CommandHandler> {
                 {Command.GET, handle_GET},
-                {Command.POST, handle_POST}
+                {Command.POST, handle_POST},
+                {Command.SUB, handle_SUB},
+                {Command.UNSUB, handle_UNSUB}
             };
 
         /// <summary>
@@ -37,6 +39,19 @@ namespace Server {
         /// in other words, <see cref="handle_POST"/>.
         /// </summary>
         public static readonly List<ChatMessage> STORED_CHAT_MESSAGES = new List<ChatMessage>();
+
+        /// <summary>
+        /// The list of subscribed <see cref="EndPoint"/>s to receive newly posted
+        /// messages. They get subscribed through <see cref="handle_SUB"/>, thus,
+        /// this list gets populated by it.
+        ///
+        /// This gets used by <see cref="handle_POST"/> to relay posted messages
+        /// to subscribed endpoints.
+        ///
+        /// Then gets used by <see cref="handle_UNSUB"/> to stop relaying posted messages
+        /// to a given endpoint.
+        /// </summary>
+        public static readonly HashSet<EndPoint> SUBSCRIBERS = new HashSet<EndPoint>();
 
         /// <summary>
         /// Public setter for the server's <see cref="Socket"/> to listen
@@ -99,6 +114,36 @@ namespace Server {
             LogInfo(
                 "{0} just stored a {1} characters-long message",
                 clientEndPoint, receivedMessage.Data.Length);
+        }
+
+        /// <summary>
+        /// Handle the a <see cref="Command.SUB"/> request,
+        /// add the requester's endpoint to the subscribers list.
+        /// </summary>
+        /// <param name="receivedMessage">The message received.</param>
+        /// <param name="clientEndPoint">The remote sender's endpoint.</param>
+        public static void handle_SUB(ChatMessage receivedMessage, EndPoint clientEndPoint) {
+            // Add the user to subscribers list if not already subbed
+            if (SUBSCRIBERS.Add(clientEndPoint)) {
+                // Log the new subscriber
+                LogInfo(
+                    "{0} just subscribed!", clientEndPoint);
+            }
+        }
+
+        /// <summary>
+        /// Handle the a <see cref="Command.UNSUB"/> request,
+        /// removing the user from the subscribers list if existing.
+        /// </summary>
+        /// <param name="receivedMessage">The message received.</param>
+        /// <param name="clientEndPoint">The remote sender's endpoint.</param>
+        public static void handle_UNSUB(ChatMessage receivedMessage, EndPoint clientEndPoint) {
+            // Attempt to remove the user from the subscribers list
+            if (SUBSCRIBERS.Remove(clientEndPoint)) {
+                // Log the new subscriber
+                LogInfo(
+                    "{0} just unsubscribed!", clientEndPoint);
+            }
         }
 
         /// <summary>

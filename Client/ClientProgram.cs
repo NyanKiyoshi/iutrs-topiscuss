@@ -95,6 +95,38 @@ namespace Client {
         }
 
         /// <summary>
+        /// Prompt the user to say yes, or no.
+        /// </summary>
+        /// <param name="promptMessage">The message to prompt to the user</param>
+        /// <returns></returns>
+        public static bool PromptYesNo(string promptMessage) {
+            while (true) {
+                // Prompt and read a key
+                Console.Write(promptMessage);
+                var readKey = Console.ReadKey();
+
+                // Put the cursor on the beginning of a new line
+                Console.WriteLine();
+
+                // Parse the key:
+                //   - Y/Return: return true,
+                //   - N: return false,
+                //   - others: UNK, ask again.
+                switch (readKey.Key) {
+                    case ConsoleKey.Enter:
+                    case ConsoleKey.Y:
+                        return true;
+
+                    case ConsoleKey.N:
+                        return false;
+
+                    default:
+                        continue;
+                }
+            }
+        }
+
+        /// <summary>
         /// Prompt the user to enter a "valid" <see cref="Command"/>.
         ///
         /// Note that a non existing <see cref="Command"/> <see cref="Int32"/> value is still
@@ -107,7 +139,7 @@ namespace Client {
         /// <returns>The submitted command.</returns>
         public static Command PromptCommand() {
             while (true) {
-                var inputCommand = Prompt("Command (POST [0], GET [1], SUB [5] or UNSUB [6]): ", 10).ToUpper();
+                var inputCommand = Prompt("Command (POST [0], GET [1], SUB [5] or UNSUB [7]): ", 10).ToUpper();
 
                 if (Enum.TryParse(inputCommand, out Command foundCommand)) {
                     return foundCommand;
@@ -156,6 +188,29 @@ namespace Client {
         }
 
         /// <summary>
+        /// Check for incoming messages until the user says to stop or continue.
+        /// </summary>
+        public static void ControlledMessagesChecking() {
+            do {
+                try {
+                    // Wait for a response from the server
+                    Console.WriteLine("*** Looking for incoming messages (~1ms)...");
+                    ReceiveMessages();
+                }
+                catch (SocketException) {
+                    // Catch the error if we were unable to connect to the server,
+                    // and let the user know there was a connectivity issue.
+                    Console.WriteLine(
+                        "Failed to listen for messages onto {0}", _serverEndpoint);
+                }
+            }
+            // Ask the user if they want to continue looking for new messages or not.
+            // A blank message from the user will mean to continue looking.
+            while (
+                PromptYesNo("Continue looking for incoming messages? Yes/ No. [default: Yes] "));
+        }
+
+        /// <summary>
         /// The entry point of the UDP chat client.
         /// </summary>
         /// <param name="args"></param>
@@ -177,6 +232,9 @@ namespace Client {
 
             try {
                 while (true) {
+                    // Check for messages and prompt the user what to do (continue or stop)
+                    ControlledMessagesChecking();
+
                     // Prompt the user, what message and command to send to the server
                     var chatMessage = PromptAllFields();
 
@@ -189,18 +247,6 @@ namespace Client {
 
                     // Log the message to stdout
                     Console.WriteLine(chatMessage);
-
-                    // If the command was a request,
-                    // wait for a response from the server
-                    if (chatMessage.Command == Command.GET) {
-                        try {
-                            ReceiveMessages();
-                        }
-                        catch (SocketException) {
-                            Console.WriteLine(
-                                "Failed to listen for messages onto {0}", _serverEndpoint);
-                        }
-                    }
                 }
             }
             finally {
