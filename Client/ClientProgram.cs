@@ -98,7 +98,7 @@ namespace Client {
         /// Prompt the user to say yes, or no.
         /// </summary>
         /// <param name="promptMessage">The message to prompt to the user</param>
-        /// <returns></returns>
+        /// <returns><c>True</c> if the user said yes or nothing, <c>False</c> if they said no.</returns>
         public static bool PromptYesNo(string promptMessage) {
             while (true) {
                 // Prompt and read a key
@@ -139,7 +139,8 @@ namespace Client {
         /// <returns>The submitted command.</returns>
         public static Command PromptCommand() {
             while (true) {
-                var inputCommand = Prompt("Command (POST [0], GET [1], SUB [5] or UNSUB [7]): ", 10).ToUpper();
+                var inputCommand = Prompt(
+                    "Command (POST [0], GET [1], SUB [5] or UNSUB [7]): ", 10).ToUpper();
 
                 if (Enum.TryParse(inputCommand, out Command foundCommand)) {
                     return foundCommand;
@@ -238,12 +239,8 @@ namespace Client {
                     // Prompt the user, what message and command to send to the server
                     var chatMessage = PromptAllFields();
 
-                    // Convert this message to bytes
-                    var buffer = chatMessage.GetBytes();
-
-                    // Send the buffer to the server
-                    _clientSocket.SendTo(
-                        buffer, 0, buffer.Length, SocketFlags.None, _serverEndpoint);
+                    // Send the message to the server
+                    IPUtils.SendMessage(_clientSocket, chatMessage, _serverEndpoint);
 
                     // Log the message to stdout
                     Console.WriteLine(chatMessage);

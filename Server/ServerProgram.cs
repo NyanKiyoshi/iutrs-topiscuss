@@ -71,6 +71,20 @@ namespace Server {
         }
 
         /// <summary>
+        /// Sends a given <see cref="ChatMessage"/> to a given <see cref="EndPoint"/>.
+        /// </summary>
+        /// <param name="chatMessage">The message to send.</param>
+        /// <param name="remoteEndPoint">The endpoint to send to.</param>
+        public static void SendMessage(ChatMessage chatMessage, EndPoint remoteEndPoint) {
+            // Send the message
+            var sentBytes = IPUtils.SendMessage(
+                _serverSocket, chatMessage, remoteEndPoint);
+
+            // Log the fact we just sent data out
+            LogInfo("Sent {0} bytes to {1}", sentBytes, remoteEndPoint);
+        }
+
+        /// <summary>
         /// Handles a <see cref="Command.GET"/> request,
         /// sending every <see cref="STORED_CHAT_MESSAGES">stored chat messages</see>
         /// to the requesting client.
@@ -80,25 +94,14 @@ namespace Server {
         public static void handle_GET(ChatMessage receivedMessage, EndPoint clientEndPoint) {
             // Send every stored message to the client
             foreach (var storedChatMessage in STORED_CHAT_MESSAGES) {
-                // Convert the message to a byte buffer
-                var bufferToSend = storedChatMessage.GetBytes();
-
-                // Send the message
-                var sentBytes = _serverSocket.SendTo(
-                    buffer: bufferToSend,
-                    offset: 0,
-                    size: bufferToSend.Length,
-                    socketFlags: SocketFlags.None,
-                    remoteEP: clientEndPoint);
-
-                // Log the fact we just sent data out
-                LogInfo("Sent {0} bytes to {1}", sentBytes, clientEndPoint);
+                SendMessage(storedChatMessage, clientEndPoint);
             }
         }
 
         /// <summary>
         /// Handle the a <see cref="Command.POST"/> request,
-        /// sending all stored message to the requester.
+        /// storing the requester's message to the server,
+        /// and sending it out to every subscriber.
         /// </summary>
         /// <param name="receivedMessage">The message received.</param>
         /// <param name="clientEndPoint">The remote sender's endpoint.</param>
@@ -114,6 +117,11 @@ namespace Server {
             LogInfo(
                 "{0} just stored a {1} characters-long message",
                 clientEndPoint, receivedMessage.Data.Length);
+
+            // Send the message to every subscriber
+            foreach (var subscriberEndPoint in SUBSCRIBERS) {
+                SendMessage(receivedMessage, subscriberEndPoint);
+            }
         }
 
         /// <summary>
