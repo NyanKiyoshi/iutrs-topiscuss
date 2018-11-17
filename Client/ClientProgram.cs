@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Net;
 using System.Net.Sockets;
 using Shared;
+using CommandType = Shared.CommandType;
 
 namespace Client {
     /// <summary>
@@ -23,6 +25,13 @@ namespace Client {
         /// </summary>
         private static IPEndPoint _serverEndpoint = new IPEndPoint(
             DefaultConfig.DEFAULT_SERVER_HOST, DefaultConfig.DEFAULT_SERVER_PORT);
+
+        /// <summary>
+        /// The client's socket that it's using to communicate with the server.
+        /// Storing this value as a global will allow us to retrieve data from
+        /// the server later on.
+        /// </summary>
+        private static Socket _clientSocket;
 
         /// <summary>
         /// The user's custom nickname (mandatory).
@@ -98,7 +107,7 @@ namespace Client {
         /// <returns>The submitted command.</returns>
         public static Command PromptCommand() {
             while (true) {
-                var inputCommand = Prompt("Command (POST, GET, SUB or UNSUB): ", 10).ToUpper();
+                var inputCommand = Prompt("Command (POST [0], GET [1], SUB [5] or UNSUB [6]): ", 10).ToUpper();
 
                 if (Enum.TryParse(inputCommand, out Command foundCommand)) {
                     return foundCommand;
@@ -115,11 +124,35 @@ namespace Client {
             var command = PromptCommand();
             var message = Prompt("Message: ", ChatMessage.MAX_DATA_SIZE - 1);  // minus NUL
 
+            // Returning the resulting chat message, from the user input
             return new ChatMessage(
                 command: command,
                 type: CommandType.REQUEST,
                 nickname: _nickname,
                 data: message);
+        }
+
+        /// <summary>
+        /// Attempt to receive messages from the server,
+        /// will throw <see cref="SocketError"/> if it's unable to connect to the server.
+        /// </summary>
+        public static void ReceiveMessages() {
+            // Check if data is available to be received.
+            // Stop looking for messages after 1ms.
+            while (_clientSocket.Poll(10000, SelectMode.SelectRead)) {
+                EndPoint remoteEndPoint = null;
+                try {
+                    // Wait for a message, retrieve it and decode it
+                    var receivedMessage = IPUtils.ReceiveMessage(_clientSocket, out remoteEndPoint);
+
+                    // Handle the received message
+                    Console.WriteLine(receivedMessage);
+                }
+                catch (SyntaxErrorException) {
+                    Console.WriteLine(
+                        "Warning: received an invalid message from {0}", remoteEndPoint);
+                }
+            }
         }
 
         /// <summary>
@@ -139,7 +172,7 @@ namespace Client {
             // Log the server endpoint that we are going to use,
             // and prepare a UDP socket to use to send message to the server.
             Console.WriteLine("Using {0}", _serverEndpoint);
-            var clientSocket =
+            _clientSocket =
                 new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
 
             try {
@@ -151,16 +184,28 @@ namespace Client {
                     var buffer = chatMessage.GetBytes();
 
                     // Send the buffer to the server
-                    clientSocket.SendTo(
+                    _clientSocket.SendTo(
                         buffer, 0, buffer.Length, SocketFlags.None, _serverEndpoint);
 
                     // Log the message to stdout
                     Console.WriteLine(chatMessage);
+
+                    // If the command was a request,
+                    // wait for a response from the server
+                    if (chatMessage.Command == Command.GET) {
+                        try {
+                            ReceiveMessages();
+                        }
+                        catch (SocketException) {
+                            Console.WriteLine(
+                                "Failed to listen for messages onto {0}", _serverEndpoint);
+                        }
+                    }
                 }
             }
             finally {
                 // Finally, close the socket
-                clientSocket.Close();
+                _clientSocket.Close();
             }
         }
     }

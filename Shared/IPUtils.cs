@@ -1,4 +1,6 @@
+using System.Data;
 using System.Net;
+using System.Net.Sockets;
 
 namespace Shared {
     public static class IPUtils {
@@ -37,6 +39,28 @@ namespace Shared {
             // Everything is valid, create the endpoint.
             parsedEndPoint = new IPEndPoint(address, port);
             return true;
+        }
+
+        /// <summary>
+        /// Waits for a <see cref="ChatMessage"/> message on a given socket,
+        /// and return the sender's endpoint to a out parameter
+        /// (we do not want to override any existing variable with possible
+        /// a malicious sender's endpoint to take over the listened server).
+        /// </summary>
+        /// <param name="sourceSocket">The socket to read from.</param>
+        /// <param name="remoteEndPoint">The sender's endpoint.</param>
+        /// <returns>The received and parsed chat message.</returns>
+        /// <exception cref="SyntaxErrorException">If the received byte buffer is invalid.</exception>
+        public static ChatMessage ReceiveMessage(Socket sourceSocket, out EndPoint remoteEndPoint) {
+            // Create a IP address endpoint to store the client information into
+            remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
+
+            // Wait for a message and retrieve it
+            var buffer = new byte[ChatMessage.FINAL_BUFFER_MAX_SIZE];
+            sourceSocket.ReceiveFrom(buffer, buffer.Length, SocketFlags.None, ref remoteEndPoint);
+
+            // Decode the received buffer and return it
+            return new ChatMessage(buffer);
         }
     }
 }

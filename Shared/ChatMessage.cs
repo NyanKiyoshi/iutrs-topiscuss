@@ -62,7 +62,7 @@ namespace Shared {
         /// is a request or a response.
         /// </summary>
         /// <seealso cref="Command"/>
-        public readonly CommandType CommandType;
+        public CommandType CommandType;
 
         /// <summary>
         /// The data buffer to be sent or received.
