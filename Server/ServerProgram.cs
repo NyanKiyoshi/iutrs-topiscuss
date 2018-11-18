@@ -29,7 +29,9 @@ namespace Server {
         private static readonly Dictionary<Command, CommandHandler> COMMAND_DISPATCHERS =
             new Dictionary<Command, CommandHandler> {
                 {Command.GET, handle_GET},
-                {Command.POST, handle_POST}
+                {Command.POST, handle_POST},
+                {Command.SUB, handle_SUB},
+                {Command.UNSUB, handle_UNSUB}
             };
 
         /// <summary>
@@ -37,6 +39,19 @@ namespace Server {
         /// in other words, <see cref="handle_POST"/>.
         /// </summary>
         public static readonly List<ChatMessage> STORED_CHAT_MESSAGES = new List<ChatMessage>();
+
+        /// <summary>
+        /// The list of subscribed <see cref="EndPoint"/>s to receive newly posted
+        /// messages. They get subscribed through <see cref="handle_SUB"/>, thus,
+        /// this list gets populated by it.
+        ///
+        /// This gets used by <see cref="handle_POST"/> to relay posted messages
+        /// to subscribed endpoints.
+        ///
+        /// Then gets used by <see cref="handle_UNSUB"/> to stop relaying posted messages
+        /// to a given endpoint.
+        /// </summary>
+        public static readonly HashSet<EndPoint> SUBSCRIBERS = new HashSet<EndPoint>();
 
         /// <summary>
         /// Public setter for the server's <see cref="Socket"/> to listen
@@ -56,6 +71,20 @@ namespace Server {
         }
 
         /// <summary>
+        /// Sends a given <see cref="ChatMessage"/> to a given <see cref="EndPoint"/>.
+        /// </summary>
+        /// <param name="chatMessage">The message to send.</param>
+        /// <param name="remoteEndPoint">The endpoint to send to.</param>
+        public static void SendMessage(ChatMessage chatMessage, EndPoint remoteEndPoint) {
+            // Send the message
+            var sentBytes = IPUtils.SendMessage(
+                _serverSocket, chatMessage, remoteEndPoint);
+
+            // Log the fact we just sent data out
+            LogInfo("Sent {0} bytes to {1}", sentBytes, remoteEndPoint);
+        }
+
+        /// <summary>
         /// Handles a <see cref="Command.GET"/> request,
         /// sending every <see cref="STORED_CHAT_MESSAGES">stored chat messages</see>
         /// to the requesting client.
@@ -65,25 +94,14 @@ namespace Server {
         public static void handle_GET(ChatMessage receivedMessage, EndPoint clientEndPoint) {
             // Send every stored message to the client
             foreach (var storedChatMessage in STORED_CHAT_MESSAGES) {
-                // Convert the message to a byte buffer
-                var bufferToSend = storedChatMessage.GetBytes();
-
-                // Send the message
-                var sentBytes = _serverSocket.SendTo(
-                    buffer: bufferToSend,
-                    offset: 0,
-                    size: bufferToSend.Length,
-                    socketFlags: SocketFlags.None,
-                    remoteEP: clientEndPoint);
-
-                // Log the fact we just sent data out
-                LogInfo("Sent {0} bytes to {1}", sentBytes, clientEndPoint);
+                SendMessage(storedChatMessage, clientEndPoint);
             }
         }
 
         /// <summary>
         /// Handle the a <see cref="Command.POST"/> request,
-        /// sending all stored message to the requester.
+        /// storing the requester's message to the server,
+        /// and sending it out to every subscriber.
         /// </summary>
         /// <param name="receivedMessage">The message received.</param>
         /// <param name="clientEndPoint">The remote sender's endpoint.</param>
@@ -99,6 +117,41 @@ namespace Server {
             LogInfo(
                 "{0} just stored a {1} characters-long message",
                 clientEndPoint, receivedMessage.Data.Length);
+
+            // Send the message to every subscriber
+            foreach (var subscriberEndPoint in SUBSCRIBERS) {
+                SendMessage(receivedMessage, subscriberEndPoint);
+            }
+        }
+
+        /// <summary>
+        /// Handle the a <see cref="Command.SUB"/> request,
+        /// add the requester's endpoint to the subscribers list.
+        /// </summary>
+        /// <param name="receivedMessage">The message received.</param>
+        /// <param name="clientEndPoint">The remote sender's endpoint.</param>
+        public static void handle_SUB(ChatMessage receivedMessage, EndPoint clientEndPoint) {
+            // Add the user to subscribers list if not already subbed
+            if (SUBSCRIBERS.Add(clientEndPoint)) {
+                // Log the new subscriber
+                LogInfo(
+                    "{0} just subscribed!", clientEndPoint);
+            }
+        }
+
+        /// <summary>
+        /// Handle the a <see cref="Command.UNSUB"/> request,
+        /// removing the user from the subscribers list if existing.
+        /// </summary>
+        /// <param name="receivedMessage">The message received.</param>
+        /// <param name="clientEndPoint">The remote sender's endpoint.</param>
+        public static void handle_UNSUB(ChatMessage receivedMessage, EndPoint clientEndPoint) {
+            // Attempt to remove the user from the subscribers list
+            if (SUBSCRIBERS.Remove(clientEndPoint)) {
+                // Log the new subscriber
+                LogInfo(
+                    "{0} just unsubscribed!", clientEndPoint);
+            }
         }
 
         /// <summary>
