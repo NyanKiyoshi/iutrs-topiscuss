@@ -1,4 +1,5 @@
 using System.Data;
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.Sockets;
 
@@ -51,6 +52,7 @@ namespace Shared {
         /// <param name="remoteEndPoint">The sender's endpoint.</param>
         /// <returns>The received and parsed chat message.</returns>
         /// <exception cref="SyntaxErrorException">If the received byte buffer is invalid.</exception>
+        [ExcludeFromCodeCoverage]
         public static ChatMessage ReceiveMessage(Socket sourceSocket, out EndPoint remoteEndPoint) {
             // Create a IP address endpoint to store the client information into
             remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
@@ -61,6 +63,28 @@ namespace Shared {
 
             // Decode the received buffer and return it
             return new ChatMessage(buffer);
+        }
+
+        /// <summary>
+        /// Sends a given <see cref="ChatMessage"/> to a given <see cref="EndPoint"/>
+        /// using a given <see cref="Socket"/>.
+        /// </summary>
+        /// <param name="sourceSocket">The socket to use to send the message.</param>
+        /// <param name="chatMessage">The message to send.</param>
+        /// <param name="remoteEndPoint">The target endpoint.</param>
+        /// <returns>The number of bytes sent.</returns>
+        public static int SendMessage(
+                Socket sourceSocket, ChatMessage chatMessage, EndPoint remoteEndPoint) {
+            // Convert the message to a byte buffer
+            var bufferToSend = chatMessage.GetBytes();
+
+            // Send the message
+            return sourceSocket.SendTo(
+                buffer: bufferToSend,
+                offset: 0,
+                size: bufferToSend.Length,
+                socketFlags: SocketFlags.None,
+                remoteEP: remoteEndPoint);
         }
     }
 }
