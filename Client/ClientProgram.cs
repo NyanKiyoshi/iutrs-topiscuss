@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Net;
-using System.Net.Sockets;
 using Shared;
 using CommandType = Shared.CommandType;
 
@@ -17,26 +15,51 @@ namespace Client {
         public const string HELP_ARGUMENT = "--help";
 
         /// <summary>
-        /// The server endpoint to which we want to send data.
-        /// This initialize a the default server config, it may get overriden by the user in
-        /// <see cref="ParseArgs"/>.
-        ///
-        /// For more information, see: <see cref="PrintUsage"/>.
+        /// The user's custom nickname (mandatory).
         /// </summary>
-        private static IPEndPoint _serverEndpoint = new IPEndPoint(
-            DefaultConfig.DEFAULT_SERVER_HOST, DefaultConfig.DEFAULT_SERVER_PORT);
-
-        /// <summary>
-        /// The client's socket that it's using to communicate with the server.
-        /// Storing this value as a global will allow us to retrieve data from
-        /// the server later on.
-        /// </summary>
-        private static Socket _clientSocket;
+        private static string _nickname;
 
         /// <summary>
         /// The user's custom nickname (mandatory).
         /// </summary>
-        private static string _nickname;
+        private static DisposableClient _disposableClient;
+
+        /// <summary>
+        /// Register the events that gets asynchronously triggered.
+        ///
+        /// <list type="bullet">
+        ///     <item>
+        ///         <term><c>CancelKeyPress</c></term>
+        ///         <description>
+        ///         Whenever the user hits <tt>CTRL+C</tt>, dispatching a <c>Dispose</c>
+        ///         event to the <see cref="_disposableClient"/>, to clean up everything (thread, and sockets).
+        ///         Then, when everything is clean, exits with <tt>1</tt>.
+        ///         </description>
+        ///     </item>
+        ///     <item>
+        ///         <term><c>MessageReceivedEvent</c></term>
+        ///         <description>
+        ///         Whenever a message was received from the targeted chat (see <see cref="ParseArgs"/>)
+        ///         server, it prints it to <tt>stdout</tt>.
+        ///         </description>
+        ///     </item>
+        /// </list>
+        /// </summary>
+        private static void RegisterEvents() {
+            // .NET does not dispatch the termination event to disposables and finally blocks,
+            // thus, we manually tell .NET not to handle the termination and just dispatch it
+            // to the disposable that will handle all the cleaning, and then exit.
+            Console.CancelKeyPress += (sender, eventArgs) => {
+                _disposableClient?.Dispose();
+                eventArgs.Cancel = true;
+                Environment.Exit(1);
+            };
+
+            // Log each received message to stdout
+            _disposableClient.MessageReceivedEvent += (receivedMessage, remoteEndpoint) => {
+                Console.WriteLine(Environment.NewLine + receivedMessage);
+            };
+        }
 
         /// <summary>
         /// Prints the usage of this program.
@@ -58,12 +81,36 @@ namespace Client {
         }
 
         /// <summary>
+        /// Prompt the user to input a message, for ever.
+        /// Each message submitted by the user is sent to a given server (more info: <see cref="Main"/>),
+        /// and logged into <tt>stdout</tt>.
+        /// </summary>
+        private static void PromptForMessageForEver() {
+            // While the client is active, wait for the user's input
+            while (_disposableClient.IsActive) {
+                // Prompt the user, what message and command to send to the server
+                var chatMessage = PromptAllFields();
+
+                // Send the message to the server
+                _disposableClient.SendMessage(chatMessage);
+
+                // Log the message to stdout
+                Console.WriteLine(chatMessage);
+            }
+        }
+
+        /// <summary>
         /// Parse the arguments that the application received.
-        /// It's expecting a non empty collection of string.
         /// </summary>
         /// <param name="args"></param>
-        public static void ParseArgs(IReadOnlyList<string> args) {
-            if (args.Count != 1) {
+        /// <param name="serverEndpoint">The parsed server's <see cref="IPEndPoint"/></param>
+        public static void ParseArgs(IReadOnlyList<string> args, out IPEndPoint serverEndpoint) {
+            serverEndpoint = null;
+
+            if (args.Count == 0) {
+                serverEndpoint = DefaultConfig.GetDefaultEndPoint();
+            }
+            else if (args.Count > 1) {
                 // An invalid argument count was passed, it's an error.
                 PrintUsage(isAnError: true);
             }
@@ -71,59 +118,28 @@ namespace Client {
                 // The user requested help, show it.
                 PrintUsage(isAnError: false);
             }
-            else if (!IPUtils.TryParseEndpoint(args[0], out _serverEndpoint)) {
+            else if (!IPUtils.TryParseEndpoint(args[0], out serverEndpoint)) {
                 // The user passed `host[:port]` and it was unsuccessfully parsed.
                 PrintUsage(isAnError: true);
             }
         }
 
         /// <summary>
-        ///
+        /// Prompt a given message and ensure it's not longer than the maximal length accepted.
         /// </summary>
-        /// <param name="promptMessage"></param>
-        /// <param name="maximalLength"></param>
+        /// <param name="promptMessage">The message to prompt.</param>
+        /// <param name="maximalLength">The maximal length.</param>
         /// <returns></returns>
         public static string Prompt(string promptMessage, int maximalLength) {
             var readString = string.Empty;
 
+            // Prompt the user until the message is no longer empty, or non longer too long
             while (readString?.Length < 1 || readString?.Length > maximalLength) {
                 Console.Write(promptMessage);
                 readString = Console.ReadLine()?.Trim();
             }
 
             return readString;
-        }
-
-        /// <summary>
-        /// Prompt the user to say yes, or no.
-        /// </summary>
-        /// <param name="promptMessage">The message to prompt to the user</param>
-        /// <returns><c>True</c> if the user said yes or nothing, <c>False</c> if they said no.</returns>
-        public static bool PromptYesNo(string promptMessage) {
-            while (true) {
-                // Prompt and read a key
-                Console.Write(promptMessage);
-                var readKey = Console.ReadKey();
-
-                // Put the cursor on the beginning of a new line
-                Console.WriteLine();
-
-                // Parse the key:
-                //   - Y/Return: return true,
-                //   - N: return false,
-                //   - others: UNK, ask again.
-                switch (readKey.Key) {
-                    case ConsoleKey.Enter:
-                    case ConsoleKey.Y:
-                        return true;
-
-                    case ConsoleKey.N:
-                        return false;
-
-                    default:
-                        continue;
-                }
-            }
         }
 
         /// <summary>
@@ -139,9 +155,14 @@ namespace Client {
         /// <returns>The submitted command.</returns>
         public static Command PromptCommand() {
             while (true) {
-                var inputCommand = Prompt(
-                    "Command (POST [0], GET [1], SUB [5] or UNSUB [7]): ", 10).ToUpper();
+                // Prompt for a single key
+                Console.Write("Command (POST = 0, GET = 1, SUB = 5, and UNSUB = 7): ");
+                var inputCommand = Console.ReadKey().KeyChar.ToString();
 
+                // Return at a new line
+                Console.WriteLine();
+
+                // Attempt to parse it
                 if (Enum.TryParse(inputCommand, out Command foundCommand)) {
                     return foundCommand;
                 }
@@ -166,89 +187,26 @@ namespace Client {
         }
 
         /// <summary>
-        /// Attempt to receive messages from the server,
-        /// will throw <see cref="SocketError"/> if it's unable to connect to the server.
-        /// </summary>
-        public static void ReceiveMessages() {
-            // Check if data is available to be received.
-            // Stop looking for messages after 1ms.
-            while (_clientSocket.Poll(10000, SelectMode.SelectRead)) {
-                EndPoint remoteEndPoint = null;
-                try {
-                    // Wait for a message, retrieve it and decode it
-                    var receivedMessage = IPUtils.ReceiveMessage(_clientSocket, out remoteEndPoint);
-
-                    // Handle the received message
-                    Console.WriteLine(receivedMessage);
-                }
-                catch (SyntaxErrorException) {
-                    Console.WriteLine(
-                        "Warning: received an invalid message from {0}", remoteEndPoint);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Check for incoming messages until the user says to stop or continue.
-        /// </summary>
-        public static void ControlledMessagesChecking() {
-            do {
-                try {
-                    // Wait for a response from the server
-                    Console.WriteLine("*** Looking for incoming messages (~1ms)...");
-                    ReceiveMessages();
-                }
-                catch (SocketException) {
-                    // Catch the error if we were unable to connect to the server,
-                    // and let the user know there was a connectivity issue.
-                    Console.WriteLine(
-                        "Failed to listen for messages onto {0}", _serverEndpoint);
-                }
-            }
-            // Ask the user if they want to continue looking for new messages or not.
-            // A blank message from the user will mean to continue looking.
-            while (
-                PromptYesNo("Continue looking for incoming messages? Yes/ No. [default: Yes] "));
-        }
-
-        /// <summary>
-        /// The entry point of the UDP chat client.
+        /// The entry point of the UDP chat client. It starts a connection to a given server
+        /// (see <see cref="ParseArgs"/>), and then, whenever everything is safe (see <see cref="RegisterEvents"/>),
+        /// it waits for the user to send messages.
         /// </summary>
         /// <param name="args"></param>
         private static void Main(string[] args) {
-            // If there are any passed argument values, parse them.
-            if (args.Length > 0) {
-                ParseArgs(args);
-            }
+            // Parse passed argument values
+            ParseArgs(args, out var serverEndpoint);
 
             // Prompt for a nickname
             _nickname = Prompt(
-                "Nickname: ", ChatMessage.MAX_NICKNAME_SIZE - 1);  // The maximal nickname length, excluding NUL
+                "Nickname: ", ChatMessage.MAX_NICKNAME_SIZE - 1); // The maximal nickname length, excluding NUL
 
-            // Log the server endpoint that we are going to use,
-            // and prepare a UDP socket to use to send message to the server.
-            Console.WriteLine("Using {0}", _serverEndpoint);
-            _clientSocket =
-                new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            using (_disposableClient = new DisposableClient(serverEndpoint)) {
+                // Register every async events to the client before
+                // entering the blocking mode
+                RegisterEvents();
 
-            try {
-                while (true) {
-                    // Check for messages and prompt the user what to do (continue or stop)
-                    ControlledMessagesChecking();
-
-                    // Prompt the user, what message and command to send to the server
-                    var chatMessage = PromptAllFields();
-
-                    // Send the message to the server
-                    IPUtils.SendMessage(_clientSocket, chatMessage, _serverEndpoint);
-
-                    // Log the message to stdout
-                    Console.WriteLine(chatMessage);
-                }
-            }
-            finally {
-                // Finally, close the socket
-                _clientSocket.Close();
+                // Prompt the user to send a message, forever
+                PromptForMessageForEver();
             }
         }
     }
