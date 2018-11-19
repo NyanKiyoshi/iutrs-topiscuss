@@ -178,15 +178,21 @@ namespace Server {
         /// Listens for messages and handle them.
         /// </summary>
         private static void ProcessMessages() {
+            EndPoint clientEndPoint = null;
             try {
                 // Wait for a message, retrieve it and decode it
-                var receivedMessage = IPUtils.ReceiveMessage(_serverSocket, out var clientEndPoint);
+                var receivedMessage = IPUtils.ReceiveMessage(_serverSocket, out clientEndPoint);
 
                 // Handle the received message
                 HandleMessage(receivedMessage, clientEndPoint);
             }
             catch (SyntaxErrorException) {
                 LogInfo("received an invalid message.");
+            }
+            catch (SocketException exc) {
+                LogInfo(
+                    "A connection with {0} was not properly ended. Reason: {1}",
+                    clientEndPoint, exc.Message);
             }
         }
 
