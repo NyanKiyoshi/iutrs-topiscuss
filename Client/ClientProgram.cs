@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Net;
+using System.Text;
+using Client.views;
 using Shared;
-using CommandType = Shared.CommandType;
+using Terminal.Gui;
 
 namespace Client {
     /// <summary>
@@ -13,11 +16,6 @@ namespace Client {
         /// The parameter representing a help request.
         /// </summary>
         public const string HELP_ARGUMENT = "--help";
-
-        /// <summary>
-        /// The user's custom nickname (mandatory).
-        /// </summary>
-        private static string _nickname;
 
         /// <summary>
         /// The user's custom nickname (mandatory).
@@ -81,25 +79,6 @@ namespace Client {
         }
 
         /// <summary>
-        /// Prompt the user to input a message, for ever.
-        /// Each message submitted by the user is sent to a given server (more info: <see cref="Main"/>),
-        /// and logged into <tt>stdout</tt>.
-        /// </summary>
-        private static void PromptForMessageForEver() {
-            // While the client is active, wait for the user's input
-            while (_disposableClient.IsActive) {
-                // Prompt the user, what message and command to send to the server
-                var chatMessage = PromptAllFields();
-
-                // Send the message to the server
-                _disposableClient.SendMessage(chatMessage);
-
-                // Log the message to stdout
-                Console.WriteLine(chatMessage);
-            }
-        }
-
-        /// <summary>
         /// Parse the arguments that the application received.
         /// </summary>
         /// <param name="args"></param>
@@ -124,66 +103,13 @@ namespace Client {
             }
         }
 
-        /// <summary>
-        /// Prompt a given message and ensure it's not longer than the maximal length accepted.
-        /// </summary>
-        /// <param name="promptMessage">The message to prompt.</param>
-        /// <param name="maximalLength">The maximal length.</param>
-        /// <returns></returns>
-        public static string Prompt(string promptMessage, int maximalLength) {
-            var readString = string.Empty;
-
-            // Prompt the user until the message is no longer empty, or non longer too long
-            while (readString?.Length < 1 || readString?.Length > maximalLength) {
-                Console.Write(promptMessage);
-                readString = Console.ReadLine()?.Trim();
-            }
-
-            return readString;
-        }
-
-        /// <summary>
-        /// Prompt the user to enter a "valid" <see cref="Command"/>.
-        ///
-        /// Note that a non existing <see cref="Command"/> <see cref="Int32"/> value is still
-        /// taken as a valid value. But only a bad <see cref="String"/> name is detected.
-        ///
-        /// If a <see cref="Int32"/> value is passed, it will be cased later on by
-        /// <see cref="ChatMessage"/> to a <see cref="Byte"/>.
-        /// </summary>
-        ///
-        /// <returns>The submitted command.</returns>
-        public static Command PromptCommand() {
-            while (true) {
-                // Prompt for a single key
-                Console.Write("Command (POST = 0, GET = 1, SUB = 5, and UNSUB = 7): ");
-                var inputCommand = Console.ReadKey().KeyChar.ToString();
-
-                // Return at a new line
-                Console.WriteLine();
-
-                // Attempt to parse it
-                if (Enum.TryParse(inputCommand, out Command foundCommand)) {
-                    return foundCommand;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Prompt the <see cref="Command"/> and <c>message</c> (<see cref="String"/>)
-        /// to be sent to the server (using <see cref="ChatMessage"/>'s message serialization).
-        /// </summary>
-        /// <returns>The built message to be sent, from the user input.</returns>
-        public static ChatMessage PromptAllFields() {
-            var command = PromptCommand();
-            var message = Prompt("Message: ", ChatMessage.MAX_DATA_SIZE - 1);  // minus NUL
-
-            // Returning the resulting chat message, from the user input
-            return new ChatMessage(
-                command: command,
-                type: CommandType.REQUEST,
-                nickname: _nickname,
-                data: message);
+        public static void PromptNickname() {
+            var nickname = new InputBox(
+                "Customize your Nickname",
+                "Nickname",
+                minLength: 2,
+                maxLength: ChatMessage.MAX_NICKNAME_SIZE,
+                onSuccess: (_, __) => {}).TextInput;
         }
 
         /// <summary>
@@ -195,19 +121,47 @@ namespace Client {
         private static void Main(string[] args) {
             // Parse passed argument values
             ParseArgs(args, out var serverEndpoint);
+            Application.Init();
 
-            // Prompt for a nickname
-            _nickname = Prompt(
-                "Nickname: ", ChatMessage.MAX_NICKNAME_SIZE - 1); // The maximal nickname length, excluding NUL
+            var window = new Window(Environment.CommandLine);
 
-            using (_disposableClient = new DisposableClient(serverEndpoint)) {
-                // Register every async events to the client before
-                // entering the blocking mode
-                RegisterEvents();
+            var container = new TextView();
+            var stringBuilder = new StringBuilder(string.Empty);
+            container.CanFocus = false;
+            container.Height = Dim.Fill() - 2;
+            container.Text = string.Empty;
 
-                // Prompt the user to send a message, forever
-                PromptForMessageForEver();
-            }
+            Application.MainLoop.AddTimeout(TimeSpan.FromSeconds(0.1),
+                loop => {
+                    stringBuilder.Insert(0,
+                        Environment.NewLine
+                        + DateTime.Now.ToString(CultureInfo.InvariantCulture));
+                    container.Text = stringBuilder.ToString();
+                    return true;
+                }
+            );
+
+            var inputView = new View();
+            const string inputLabelText = "Text: ";
+            inputView.Add(
+                new Label(0, 0, inputLabelText),
+                new TextField("") {
+                    X = inputLabelText.Length + 2,
+                    Width = Dim.Fill() - inputLabelText.Length,
+                    Height = 2
+                });
+
+            inputView.X = 0;
+            inputView.Height = 4;
+            inputView.Width = Dim.Fill();
+
+            container.Y = Pos.Bottom(inputView);
+
+            window.Add(inputView, container);
+
+            Application.Top.Add(window);
+            Application.MainLoop.Invoke(() => {PromptNickname();});
+            Application.Run(Application.Top);
         }
     }
 }

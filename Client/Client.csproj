@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <PackageReference Update="Microsoft.NETCore.App" Version="2.1.4" />
+    <PackageReference Include="Terminal.Gui" Version="0.16.0" />
   </ItemGroup>
 
   <ItemGroup>
