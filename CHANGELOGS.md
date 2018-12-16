@@ -1,5 +1,23 @@
 # Change logs
 
+## v1.4
+- Implemented the below commands:
+
+  | Command      | Description  |
+  |--------------|--------------|
+  | `QUIT      ` | Closes the client (client command). |
+  | `HELP      ` | Retrieve the list of available commands (client command). |
+  | `EXIT      ` | Closes and removes the current server room's connection. |
+  | `CREATEROOM` | Creates a new room in a given server, which opens a new port. |
+  | `LISTROOMS ` | Lists the available rooms of the currently connected server (see the `CONNECT` command).             |
+  | `CONNECT   ` | Connect to a given `IP[:port]` combination. |
+  
+- Refactored the static server for an instantiable server class, 
+  allowing more flexibility;
+- Fixed a bug where if the client's listening `IPEndpoint` 
+  was set to a non-routable IP, it would crash 
+  (fixes [#9](https://github.com/NyanKiyoshi/iutrs-topiscuss/issues/9)).
+
 ## v1.3
 - Fix the server's handling of non properly closed client connections,
   closes [#6](https://github.com/NyanKiyoshi/iutrs-topiscuss/issues/6);
