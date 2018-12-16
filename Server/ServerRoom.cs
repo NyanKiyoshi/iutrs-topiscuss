@@ -10,7 +10,7 @@ namespace Server {
     /// <summary>
     /// The UDP chat's server entry point.
     /// </summary>
-    public static class ServerProgram {
+    public class ServerRoom {
         /// <summary>
         /// The signature of a method capable of handling a dispatched event
         /// coming from a given endpoint.
@@ -20,26 +20,32 @@ namespace Server {
         private delegate void CommandHandler(ChatMessage receivedMessage, EndPoint clientEndPoint);
 
         /// <summary>
+        /// The server socket from which we will bind ourselves and listen for incoming messages.
+        /// </summary>
+        private Socket _serverSocket;
+
+        /// <summary>
+        /// Public setter for the server's <see cref="Socket"/> to listen
+        /// and manipulate. This is useful to mock the socket in tests.
+        /// </summary>
+        public Socket ServerSocket {
+            set => this._serverSocket = value;
+        }
+
+        /// <summary>
         /// The list of commands supported by this server and their handler.
         ///
         /// <code>
         ///     COMMAND => ServerProgram.handle_COMMAND
         /// </code>
         /// </summary>
-        private static readonly Dictionary<Command, CommandHandler> COMMAND_DISPATCHERS =
-            new Dictionary<Command, CommandHandler> {
-                {Command.GET, handle_GET},
-                {Command.POST, handle_POST},
-                {Command.SUB, handle_SUB},
-                {Command.UNSUB, handle_UNSUB},
-                {Command.STOP, handle_STOP}
-            };
+        private readonly Dictionary<Command, CommandHandler> COMMAND_DISPATCHERS;
 
         /// <summary>
         /// The list of stored messages, which gets populated by <see cref="Command.GET"/>,
         /// in other words, <see cref="handle_POST"/>.
         /// </summary>
-        public static readonly List<ChatMessage> STORED_CHAT_MESSAGES = new List<ChatMessage>();
+        public readonly List<ChatMessage> STORED_CHAT_MESSAGES = new List<ChatMessage>();
 
         /// <summary>
         /// The list of subscribed <see cref="EndPoint"/>s to receive newly posted
@@ -52,15 +58,7 @@ namespace Server {
         /// Then gets used by <see cref="handle_UNSUB"/> to stop relaying posted messages
         /// to a given endpoint.
         /// </summary>
-        public static readonly HashSet<EndPoint> SUBSCRIBERS = new HashSet<EndPoint>();
-
-        /// <summary>
-        /// Public setter for the server's <see cref="Socket"/> to listen
-        /// and manipulate. This is useful to mock the socket in tests.
-        /// </summary>
-        public static Socket ServerSocket {
-            set => _serverSocket = value;
-        }
+        public readonly HashSet<EndPoint> SUBSCRIBERS = new HashSet<EndPoint>();
 
         /// <summary>
         /// Logs a given formatted message into the server's stdout.
@@ -71,15 +69,25 @@ namespace Server {
             Console.WriteLine("[Server INFO] " + "[" + DateTime.Now + "] " + format, arg: arg);
         }
 
+        public ServerRoom() {
+            this.COMMAND_DISPATCHERS = new Dictionary<Command, CommandHandler> {
+                {Command.GET, this.handle_GET},
+                {Command.POST, this.handle_POST},
+                {Command.SUB, this.handle_SUB},
+                {Command.UNSUB, this.handle_UNSUB},
+                {Command.STOP, this.handle_STOP}
+            };
+        }
+
         /// <summary>
         /// Sends a given <see cref="ChatMessage"/> to a given <see cref="EndPoint"/>.
         /// </summary>
         /// <param name="chatMessage">The message to send.</param>
         /// <param name="remoteEndPoint">The endpoint to send to.</param>
-        public static void SendMessage(ChatMessage chatMessage, EndPoint remoteEndPoint) {
+        public void SendMessage(ChatMessage chatMessage, EndPoint remoteEndPoint) {
             // Send the message
             var sentBytes = IPUtils.SendMessage(
-                _serverSocket, chatMessage, remoteEndPoint);
+                this._serverSocket, chatMessage, remoteEndPoint);
 
             // Log the fact we just sent data out
             LogInfo("Sent {0} bytes to {1}", sentBytes, remoteEndPoint);
@@ -92,10 +100,10 @@ namespace Server {
         /// </summary>
         /// <param name="receivedMessage">The message that requested</param>
         /// <param name="clientEndPoint">The endpoint that requested our stored data.</param>
-        public static void handle_GET(ChatMessage receivedMessage, EndPoint clientEndPoint) {
+        public void handle_GET(ChatMessage receivedMessage, EndPoint clientEndPoint) {
             // Send every stored message to the client
-            foreach (var storedChatMessage in STORED_CHAT_MESSAGES) {
-                SendMessage(storedChatMessage, clientEndPoint);
+            foreach (var storedChatMessage in this.STORED_CHAT_MESSAGES) {
+                this.SendMessage(storedChatMessage, clientEndPoint);
             }
         }
 
@@ -106,13 +114,13 @@ namespace Server {
         /// </summary>
         /// <param name="receivedMessage">The message received.</param>
         /// <param name="clientEndPoint">The remote sender's endpoint.</param>
-        public static void handle_POST(ChatMessage receivedMessage, EndPoint clientEndPoint) {
+        public void handle_POST(ChatMessage receivedMessage, EndPoint clientEndPoint) {
             // Change the command type to response,
             // as we will only use it from `handle_GET` as response a message.
             receivedMessage.CommandType = CommandType.RESPONSE;
 
             // Store the message
-            STORED_CHAT_MESSAGES.Add(receivedMessage);
+            this.STORED_CHAT_MESSAGES.Add(receivedMessage);
 
             // Log what we just did
             LogInfo(
@@ -120,8 +128,8 @@ namespace Server {
                 clientEndPoint, receivedMessage.Data.Length);
 
             // Send the message to every subscriber
-            foreach (var subscriberEndPoint in SUBSCRIBERS) {
-                SendMessage(receivedMessage, subscriberEndPoint);
+            foreach (var subscriberEndPoint in this.SUBSCRIBERS) {
+                this.SendMessage(receivedMessage, subscriberEndPoint);
             }
         }
 
@@ -131,9 +139,9 @@ namespace Server {
         /// </summary>
         /// <param name="receivedMessage">The message received.</param>
         /// <param name="clientEndPoint">The remote sender's endpoint.</param>
-        public static void handle_SUB(ChatMessage receivedMessage, EndPoint clientEndPoint) {
+        public void handle_SUB(ChatMessage receivedMessage, EndPoint clientEndPoint) {
             // Add the user to subscribers list if not already subbed
-            if (SUBSCRIBERS.Add(clientEndPoint)) {
+            if (this.SUBSCRIBERS.Add(clientEndPoint)) {
                 // Log the new subscriber
                 LogInfo(
                     "{0} just subscribed!", clientEndPoint);
@@ -146,9 +154,9 @@ namespace Server {
         /// </summary>
         /// <param name="receivedMessage">The message received.</param>
         /// <param name="clientEndPoint">The remote sender's endpoint.</param>
-        public static void handle_UNSUB(ChatMessage receivedMessage, EndPoint clientEndPoint) {
+        public void handle_UNSUB(ChatMessage receivedMessage, EndPoint clientEndPoint) {
             // Attempt to remove the user from the subscribers list
-            if (SUBSCRIBERS.Remove(clientEndPoint)) {
+            if (this.SUBSCRIBERS.Remove(clientEndPoint)) {
                 // Log the new subscriber
                 LogInfo(
                     "{0} just unsubscribed!", clientEndPoint);
@@ -160,26 +168,21 @@ namespace Server {
         /// </summary>
         /// <param name="receivedMessage">The message received.</param>
         /// <param name="clientEndPoint">The remote sender's endpoint.</param>
-        public static void handle_STOP(ChatMessage receivedMessage, EndPoint clientEndPoint) {
-            _serverSocket.Close();
+        public void handle_STOP(ChatMessage receivedMessage, EndPoint clientEndPoint) {
+            this._serverSocket.Close();
         }
-
-        /// <summary>
-        /// The server socket from which we will bind ourselves and listen for incoming messages.
-        /// </summary>
-        private static Socket _serverSocket;
 
         /// <summary>
         /// Handle a received message from a given client.
         /// </summary>
         /// <param name="chatMessage">The message to handle.</param>
         /// <param name="clientEndPoint">The client endpoint that the message came from.</param>
-        private static void HandleMessage(ChatMessage chatMessage, EndPoint clientEndPoint) {
+        private void HandleMessage(ChatMessage chatMessage, EndPoint clientEndPoint) {
             // Log the message
             LogInfo("{0}: {1}", clientEndPoint, chatMessage);
 
             // Dispatch the received command if it's not unknown
-            if (COMMAND_DISPATCHERS.TryGetValue(chatMessage.Command, out var foundHandler)) {
+            if (this.COMMAND_DISPATCHERS.TryGetValue(chatMessage.Command, out var foundHandler)) {
                 foundHandler(receivedMessage: chatMessage, clientEndPoint: clientEndPoint);
             }
         }
@@ -187,14 +190,14 @@ namespace Server {
         /// <summary>
         /// Listens for messages and handle them.
         /// </summary>
-        private static void ProcessMessages() {
+        private void ProcessMessages() {
             EndPoint clientEndPoint = null;
             try {
                 // Wait for a message, retrieve it and decode it
-                var receivedMessage = IPUtils.ReceiveMessage(_serverSocket, out clientEndPoint);
+                var receivedMessage = IPUtils.ReceiveMessage(this._serverSocket, out clientEndPoint);
 
                 // Handle the received message
-                HandleMessage(receivedMessage, clientEndPoint);
+                this.HandleMessage(receivedMessage, clientEndPoint);
             }
             catch (SyntaxErrorException) {
                 LogInfo("Received an invalid message.");
@@ -207,21 +210,23 @@ namespace Server {
         }
 
         /// <summary>
-        /// Entry point for the UDP <see cref="Server"/>, it opens a socket
-        /// and handles every incoming messages.
+        /// Listens forever for incoming messages on a given <see cref="listeningPort"/> through
+        /// a newly created socket.
         /// </summary>
-        private static void Main() {
+        /// <param name="listeningPort"></param>
+        public void Listen(int listeningPort) {
             // Create the listening UDP socket
-            _serverSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            this._serverSocket = new Socket(
+                AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
 
             try {
                 // Bind the server socket to the default config
-                _serverSocket.Bind(new IPEndPoint(IPAddress.Any, DefaultConfig.DEFAULT_SERVER_PORT));
-                Console.WriteLine("Now listening on {0}...", _serverSocket.LocalEndPoint);
+                this._serverSocket.Bind(new IPEndPoint(IPAddress.Any, listeningPort));
+                Console.WriteLine("Now listening on {0}...", this._serverSocket.LocalEndPoint);
 
                 // Process every incoming messages
                 while (true) {
-                    ProcessMessages();
+                    this.ProcessMessages();
                 }
             }
             catch (SocketException exc) {
@@ -232,7 +237,7 @@ namespace Server {
             }
             finally {
                 // Finally, close the server socking that we were listening on
-                _serverSocket.Close();
+                this._serverSocket.Close();
             }
         }
     }
