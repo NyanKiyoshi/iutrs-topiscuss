@@ -79,7 +79,7 @@ namespace Client {
             this.ClientSocket.Bind(new IPEndPoint(IPAddress.Any, 0));
 
             // Check for messages and prompt the user what to do (continue or stop)
-            this._messageListeningThread = new Thread(ReceiveMessagesForEver);
+            this._messageListeningThread = new Thread(this.ReceiveMessagesForEver);
             this._messageListeningThread.Start();
         }
 

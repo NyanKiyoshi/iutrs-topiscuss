@@ -7,7 +7,7 @@ namespace Server {
         /// and handles every incoming messages.
         /// </summary>
         private static void Main() {
-            var baseServerRoom = new ServerRoom();
+            var baseServerRoom = new ServerRoom("Main");
             baseServerRoom.Listen(DefaultConfig.DEFAULT_SERVER_PORT);
         }
     }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
 using Shared;
 using CommandType = Shared.CommandType;
 
@@ -19,10 +20,14 @@ namespace Server {
         /// <param name="clientEndPoint">The remote endpoint from whom the message came from.</param>
         private delegate void CommandHandler(ChatMessage receivedMessage, EndPoint clientEndPoint);
 
+        private static readonly List<ServerRoom> SERVER_ROOMS = new List<ServerRoom>();
+
         /// <summary>
         /// The server socket from which we will bind ourselves and listen for incoming messages.
         /// </summary>
         private Socket _serverSocket;
+
+        private string _roomName;
 
         /// <summary>
         /// Public setter for the server's <see cref="Socket"/> to listen
@@ -30,6 +35,12 @@ namespace Server {
         /// </summary>
         public Socket ServerSocket {
             set => this._serverSocket = value;
+        }
+
+        public string RoomName => this._roomName;
+
+        public EndPoint GetListeningEndpoint() {
+            return this._serverSocket.LocalEndPoint;
         }
 
         /// <summary>
@@ -69,14 +80,16 @@ namespace Server {
             Console.WriteLine("[Server INFO] " + "[" + DateTime.Now + "] " + format, arg: arg);
         }
 
-        public ServerRoom() {
+        public ServerRoom(string name) {
             this.COMMAND_DISPATCHERS = new Dictionary<Command, CommandHandler> {
                 {Command.GET, this.handle_GET},
                 {Command.POST, this.handle_POST},
                 {Command.SUB, this.handle_SUB},
                 {Command.UNSUB, this.handle_UNSUB},
-                {Command.STOP, this.handle_STOP}
+                {Command.STOP, this.handle_STOP},
+                {Command.CREATEROOM, this.handle_CREATEROOM}
             };
+            this._roomName = name;
         }
 
         /// <summary>
@@ -172,6 +185,15 @@ namespace Server {
             this._serverSocket.Close();
         }
 
+        // TODO: we will have to limit the room count to 10
+        public void handle_CREATEROOM(ChatMessage receivedMessage, EndPoint clientEndPoint) {
+            // Create a new room object
+            var newRoom = new ServerRoom(receivedMessage.Data);
+
+            // Start the new room in a new thread
+            new Thread(() => newRoom.Listen(0)).Start();
+        }
+
         /// <summary>
         /// Handle a received message from a given client.
         /// </summary>
@@ -214,15 +236,17 @@ namespace Server {
         /// a newly created socket.
         /// </summary>
         /// <param name="listeningPort"></param>
-        public void Listen(int listeningPort) {
+        public void Listen(ushort listeningPort) {
             // Create the listening UDP socket
             this._serverSocket = new Socket(
                 AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
 
+            SERVER_ROOMS.Add(this);
+
             try {
                 // Bind the server socket to the default config
                 this._serverSocket.Bind(new IPEndPoint(IPAddress.Any, listeningPort));
-                Console.WriteLine("Now listening on {0}...", this._serverSocket.LocalEndPoint);
+                Console.WriteLine("Now listening on {0}...", this.GetListeningEndpoint());
 
                 // Process every incoming messages
                 while (true) {
@@ -238,6 +262,7 @@ namespace Server {
             finally {
                 // Finally, close the server socking that we were listening on
                 this._serverSocket.Close();
+                SERVER_ROOMS.Remove(this);
             }
         }
     }
