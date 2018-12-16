@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 using Shared;
 using CommandType = Shared.CommandType;
@@ -27,7 +29,10 @@ namespace Server {
         /// </summary>
         private Socket _serverSocket;
 
-        private string _roomName;
+        /// <summary>
+        /// The endpoint the socket will or is binded to.
+        /// </summary>
+        private IPEndPoint _bindedEndpoint;
 
         /// <summary>
         /// Public setter for the server's <see cref="Socket"/> to listen
@@ -37,10 +42,8 @@ namespace Server {
             set => this._serverSocket = value;
         }
 
-        public string RoomName => this._roomName;
-
-        public EndPoint GetListeningEndpoint() {
-            return this._serverSocket.LocalEndPoint;
+        public IPEndPoint GetListeningEndpoint() {
+            return this._bindedEndpoint;
         }
 
         /// <summary>
@@ -80,16 +83,16 @@ namespace Server {
             Console.WriteLine("[Server INFO] " + "[" + DateTime.Now + "] " + format, arg: arg);
         }
 
-        public ServerRoom(string name) {
+        public ServerRoom() {
             this.COMMAND_DISPATCHERS = new Dictionary<Command, CommandHandler> {
                 {Command.GET, this.handle_GET},
                 {Command.POST, this.handle_POST},
                 {Command.SUB, this.handle_SUB},
                 {Command.UNSUB, this.handle_UNSUB},
                 {Command.STOP, this.handle_STOP},
-                {Command.CREATEROOM, this.handle_CREATEROOM}
+                {Command.CREATEROOM, this.handle_CREATEROOM},
+                {Command.LISTROOMS, this.handle_LISTROOMS}
             };
-            this._roomName = name;
         }
 
         /// <summary>
@@ -188,10 +191,24 @@ namespace Server {
         // TODO: we will have to limit the room count to 10
         public void handle_CREATEROOM(ChatMessage receivedMessage, EndPoint clientEndPoint) {
             // Create a new room object
-            var newRoom = new ServerRoom(receivedMessage.Data);
+            var newRoom = new ServerRoom();
 
             // Start the new room in a new thread
             new Thread(() => newRoom.Listen(0)).Start();
+        }
+
+        public void handle_LISTROOMS(ChatMessage receivedMessage, EndPoint clientEndPoint) {
+            var roomList = new StringBuilder();
+
+            // FIXME: we show the server's binding point. Not the external IP address
+            // (no matter if it is public or private). Maybe we would only want to show the port?
+            SERVER_ROOMS.ForEach(
+                room => roomList.AppendFormat("\n\t{0}", room.GetListeningEndpoint().Port));
+
+            var responseMessage = new ChatMessage(
+                Command.LISTROOMS, CommandType.RESPONSE, "Server", roomList.ToString());
+
+            this.SendMessage(responseMessage, clientEndPoint);
         }
 
         /// <summary>
@@ -241,14 +258,23 @@ namespace Server {
             this._serverSocket = new Socket(
                 AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
 
+            // Create the base endpoint to listen to
+            this._bindedEndpoint = new IPEndPoint(IPAddress.Any, listeningPort);
+
+            // Register the server room as active
             SERVER_ROOMS.Add(this);
 
             try {
-                // Bind the server socket to the default config
-                this._serverSocket.Bind(new IPEndPoint(IPAddress.Any, listeningPort));
+                // Bind the server socket to the given port
+                this._serverSocket.Bind(this.GetListeningEndpoint());
+
+                // Retrieve the new endpoint, if it was changed during the connection (e.g.: port=0)
+                this._bindedEndpoint = (IPEndPoint) this._serverSocket.LocalEndPoint;
+
+                // Log the action
                 Console.WriteLine("Now listening on {0}...", this.GetListeningEndpoint());
 
-                // Process every incoming messages
+                // Process every incoming messages for ever
                 while (true) {
                     this.ProcessMessages();
                 }
@@ -257,11 +283,13 @@ namespace Server {
                 Console.WriteLine(exc.Message);
             }
             catch (ObjectDisposedException) {
-                Console.WriteLine("Server connection was closed...");
+                Console.WriteLine("{0} server connection was closed...", this.GetListeningEndpoint().Port);
             }
             finally {
                 // Finally, close the server socking that we were listening on
                 this._serverSocket.Close();
+
+                // Make the room unregistered (inactive)
                 SERVER_ROOMS.Remove(this);
             }
         }

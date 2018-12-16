@@ -3,7 +3,7 @@ using System.Data;
 using System.Text;
 
 namespace Shared {
-    public enum Command {POST, GET, HELP, QUIT, STOP, SUB, SUB2, UNSUB, CREATEROOM, LISTROOMS}
+    public enum Command {POST, GET, HELP, QUIT, STOP, SUB, SUB2, UNSUB, CREATEROOM, LISTROOMS, CONNECT}
     public enum CommandType {REQUEST, RESPONSE}
 
     /// <inheritdoc />

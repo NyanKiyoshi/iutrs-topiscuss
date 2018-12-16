@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
+using System.Net.Sockets;
 using Shared;
 using CommandType = Shared.CommandType;
 
@@ -95,11 +97,18 @@ namespace Client {
                     break;
                 }
 
-                // Send the message to the server
-                _disposableClient.SendMessage(chatMessage);
+                try {
+                    // Log the message to stdout
+                    Console.WriteLine(chatMessage);
 
-                // Log the message to stdout
-                Console.WriteLine(chatMessage);
+                    // Send the message to the server
+                    _disposableClient.SendMessage(chatMessage);
+                }
+                catch (SocketException exc) {
+                    Console.Error.WriteLine(
+                        "Failed to send the message, please check the provided endpoint. " +
+                        "Received response: {0}", exc.Message);
+                }
             }
         }
 
@@ -133,6 +142,7 @@ namespace Client {
         /// </summary>
         /// <param name="promptMessage">The message to prompt.</param>
         /// <param name="maximalLength">The maximal length.</param>
+        /// <param name="arg">The format arguments.</param>
         /// <returns></returns>
         public static string Prompt(string promptMessage, int maximalLength) {
             var readString = string.Empty;
@@ -159,14 +169,8 @@ namespace Client {
         /// <returns>The submitted command.</returns>
         public static Command PromptCommand() {
             while (true) {
-                // Prompt for a single key
-                Console.Write("Command (POST = 0, GET = 1, SUB = 5, and UNSUB = 7): ");
-                var inputCommand = Console.ReadKey().KeyChar.ToString();
+                var inputCommand = Prompt("Command ('HELP' for more info): ", 10).ToUpper();
 
-                // Return at the beginning of a new line
-                Console.WriteLine();
-
-                // Attempt to parse it
                 if (Enum.TryParse(inputCommand, out Command foundCommand)) {
                     return foundCommand;
                 }

@@ -1,5 +1,6 @@
 using System;
 using System.Data;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -12,19 +13,41 @@ namespace Client {
     /// </summary>
     public class DisposableClient : IDisposable {
         /// <summary>
-        /// The client's forever message listening task.
-        /// </summary>
-        private Thread _messageListeningThread;
-
-        /// <summary>
         /// The polling time (in <tt>us</tt>) on the <see cref="ClientSocket"/>
         /// </summary>
         private const int POLLING_TIME_MICROSECONDS = 20000;
 
         /// <summary>
+        /// The list of commands, formatted as below.
+        /// <code>
+        /// \n\t{COMMAND NAME} ({COMMAND DECIMAL VALUE})
+        /// ...
+        /// </code>
+        /// </summary>
+        private static readonly string COMMAND_LIST =
+            string.Join(
+                '\n',
+                Enum.GetValues(typeof(Command))
+                    .Cast<Command>()
+                    .ToList()
+                    .ConvertAll(
+                        command => string.Format(
+                            "\t{0} ({1})",
+                            command.ToString("G"),
+                            command.ToString("D")
+                        )
+                    )
+            );
+
+        /// <summary>
+        /// The client's forever message listening task.
+        /// </summary>
+        private Thread _messageListeningThread;
+
+        /// <summary>
         /// The server endpoint to which we want to send data.
         /// </summary>
-        public readonly IPEndPoint ServerEndpoint;
+        private IPEndPoint _serverEndpoint;
 
         /// <summary>
         /// The invoked event whenever a message is received from the server.
@@ -62,12 +85,21 @@ namespace Client {
         /// </summary>
         /// <param name="serverEndpoint">The server's endpoint to be listened on for new messages.</param>
         public DisposableClient(IPEndPoint serverEndpoint) {
-            this.ServerEndpoint = serverEndpoint;
+            this._serverEndpoint = serverEndpoint;
             this.Start();
         }
 
         /// <summary>
-        /// Start a disposable client listening on a given server endpoint (<see cref="ServerEndpoint"/>)
+        /// Logs a given formatted message into the server's stdout.
+        /// </summary>
+        /// <param name="format">The <see cref="String"/> message to format.</param>
+        /// <param name="arg">The formatting arguments.</param>
+        public static void LogInfo(string format, params object[] arg) {
+            Console.Error.WriteLine("[Client INFO] " + "[" + DateTime.Now + "] " + format, arg: arg);
+        }
+
+        /// <summary>
+        /// Start a disposable client listening on a given server endpoint (<see cref="_serverEndpoint"/>)
         /// for new messages in a separated thread.
         /// And send any provided messages using <see cref="SendMessage"/> to the server.
         /// </summary>
@@ -131,7 +163,23 @@ namespace Client {
         /// </summary>
         /// <param name="chatMessage"></param>
         public void SendMessage(ChatMessage chatMessage) {
-            IPUtils.SendMessage(this.ClientSocket, chatMessage, this.ServerEndpoint);
+            switch (chatMessage.Command) {
+                case Command.CONNECT:
+                    if (IPUtils.TryParseEndpoint(chatMessage.Data, out var parsedEndpoint)) {
+                        this._serverEndpoint = parsedEndpoint;
+                        LogInfo("Server is now {0}.", parsedEndpoint);
+                    }
+                    else {
+                        LogInfo("{0} is an invalid endpoint, CONNECT aborted.", chatMessage.Data);
+                    }
+                    break;
+                case Command.HELP:
+                    Console.WriteLine(COMMAND_LIST);
+                    break;
+                default:
+                    IPUtils.SendMessage(this.ClientSocket, chatMessage, this._serverEndpoint);
+                    break;
+            }
         }
 
         /// <inheritdoc />

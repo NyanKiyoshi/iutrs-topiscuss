@@ -58,7 +58,7 @@ namespace Tests.TestServer {
             Console.SetOut(this._textWriter);
 
             // Create a new server room
-            this._serverRoom = new ServerRoom("TestRoom");
+            this._serverRoom = new ServerRoom();
 
             // The message to store
             this._chatMessage = new ChatMessage(
