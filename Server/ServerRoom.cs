@@ -31,7 +31,8 @@ namespace Server {
                 {Command.GET, handle_GET},
                 {Command.POST, handle_POST},
                 {Command.SUB, handle_SUB},
-                {Command.UNSUB, handle_UNSUB}
+                {Command.UNSUB, handle_UNSUB},
+                {Command.STOP, handle_STOP}
             };
 
         /// <summary>
@@ -155,6 +156,15 @@ namespace Server {
         }
 
         /// <summary>
+        /// Handle the a <see cref="Command.STOP"/> request, shutdown the server.
+        /// </summary>
+        /// <param name="receivedMessage">The message received.</param>
+        /// <param name="clientEndPoint">The remote sender's endpoint.</param>
+        public static void handle_STOP(ChatMessage receivedMessage, EndPoint clientEndPoint) {
+            _serverSocket.Close();
+        }
+
+        /// <summary>
         /// The server socket from which we will bind ourselves and listen for incoming messages.
         /// </summary>
         private static Socket _serverSocket;
@@ -187,7 +197,7 @@ namespace Server {
                 HandleMessage(receivedMessage, clientEndPoint);
             }
             catch (SyntaxErrorException) {
-                LogInfo("received an invalid message.");
+                LogInfo("Received an invalid message.");
             }
             catch (SocketException exc) {
                 LogInfo(
@@ -216,6 +226,9 @@ namespace Server {
             }
             catch (SocketException exc) {
                 Console.WriteLine(exc.Message);
+            }
+            catch (ObjectDisposedException) {
+                Console.WriteLine("Server connection was closed...");
             }
             finally {
                 // Finally, close the server socking that we were listening on

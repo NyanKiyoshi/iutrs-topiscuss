@@ -91,6 +91,10 @@ namespace Client {
                 // Prompt the user, what message and command to send to the server
                 var chatMessage = PromptAllFields();
 
+                if (chatMessage.Command == Command.QUIT) {
+                    break;
+                }
+
                 // Send the message to the server
                 _disposableClient.SendMessage(chatMessage);
 
