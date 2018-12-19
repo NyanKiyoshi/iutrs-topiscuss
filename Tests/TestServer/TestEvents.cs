@@ -28,6 +28,7 @@ namespace Tests.TestServer {
     public class TestEvents {
         private ChatMessage _chatMessage;
         private StringWriter _textWriter;
+        private ServerRoom _serverRoom;
 
         /// <summary>
         /// Generate a valid loopback endpoint,
@@ -56,12 +57,15 @@ namespace Tests.TestServer {
             this._textWriter = new StringWriter();
             Console.SetOut(this._textWriter);
 
+            // Create a new server room
+            this._serverRoom = new ServerRoom();
+
             // The message to store
             this._chatMessage = new ChatMessage(
                 Command.POST, CommandType.RESPONSE, "Nick's name", "Hello world! :-)");
 
             // Simulate the POST command, storing the message
-            ServerProgram.handle_POST(
+            this._serverRoom.handle_POST(
                 this._chatMessage, new IPEndPoint(IPAddress.Any, 0));
 
             // Clear off the mocked text writer
@@ -73,18 +77,18 @@ namespace Tests.TestServer {
         /// </summary>
         [TearDown]
         public void TearDown() {
-            ServerProgram.STORED_CHAT_MESSAGES.Clear();
-            ServerProgram.SUBSCRIBERS.Clear();
+            this._serverRoom.STORED_CHAT_MESSAGES.Clear();
+            this._serverRoom.SUBSCRIBERS.Clear();
         }
 
         /// <summary>
         /// Ensure the message from <see cref="Setup"/>'s call to
-        /// <see cref="ServerProgram.handle_POST"/> was successfully handled.
+        /// <see cref="ServerRoom.handle_POST"/> was successfully handled.
         /// </summary>
         [TestCase]
         public void Test_handle_POST() {
-            Assert.AreEqual(ServerProgram.STORED_CHAT_MESSAGES.Count, 1);
-            Assert.AreEqual(ServerProgram.STORED_CHAT_MESSAGES[0], this._chatMessage);
+            Assert.AreEqual(this._serverRoom.STORED_CHAT_MESSAGES.Count, 1);
+            Assert.AreEqual(this._serverRoom.STORED_CHAT_MESSAGES[0], this._chatMessage);
         }
 
         /// <summary>
@@ -94,15 +98,15 @@ namespace Tests.TestServer {
         [TestCase]
         public void Test_handle_GET() {
             // Initialize the test data and check the integrity
-            ServerProgram.ServerSocket = new MockedSocket();
-            Assert.AreEqual(ServerProgram.STORED_CHAT_MESSAGES.Count, 1);
+            this._serverRoom.ServerSocket = new MockedSocket();
+            Assert.AreEqual(this._serverRoom.STORED_CHAT_MESSAGES.Count, 1);
 
             // Simulate the GET command, get the message
-            ServerProgram.handle_GET(null, TestEndPoint());
+            this._serverRoom.handle_GET(null, TestEndPoint());
         }
 
         /// <summary>
-        /// Ensure the <see cref="ServerProgram.handle_SUB"/>
+        /// Ensure the <see cref="ServerRoom.handle_SUB"/>
         /// is correctly registering users, and the endpoints are kept unique
         /// even if the objects are not of the same address.
         /// </summary>
@@ -110,66 +114,66 @@ namespace Tests.TestServer {
         public void Test_handle_SUB() {
             // Ensure the subscribers list is empty
             // and no data was written to the mocked console
-            Assert.AreEqual(ServerProgram.SUBSCRIBERS.Count, 0);
+            Assert.AreEqual(this._serverRoom.SUBSCRIBERS.Count, 0);
             Assert.IsEmpty(this._textWriter.ToString());
 
             // Simulate the SUB command
-            ServerProgram.handle_SUB(null, TestEndPoint());
+            this._serverRoom.handle_SUB(null, TestEndPoint());
 
             // Ensure the subscription alert was written to the console
             Assert.That(this.ReadTextWritter(), Does.EndWith(" just subscribed!"));
             this._textWriter.GetStringBuilder().Clear();
 
             // Ensure it fails to subscribe twice the same endpoint data
-            ServerProgram.handle_SUB(null, TestEndPoint());
+            this._serverRoom.handle_SUB(null, TestEndPoint());
             Assert.IsEmpty(this._textWriter.ToString());
 
             // Check if we are now subscribed
-            Assert.AreEqual(ServerProgram.SUBSCRIBERS.Count, 1);
+            Assert.AreEqual(this._serverRoom.SUBSCRIBERS.Count, 1);
             CollectionAssert.AreEqual(
-                ServerProgram.SUBSCRIBERS, new HashSet<EndPoint> {TestEndPoint()});
+                this._serverRoom.SUBSCRIBERS, new HashSet<EndPoint> {TestEndPoint()});
         }
 
         /// <summary>
-        /// Ensure the <see cref="ServerProgram.handle_UNSUB"/>
+        /// Ensure the <see cref="ServerRoom.handle_UNSUB"/>
         /// is correctly unregistering users.
         /// </summary>
         [TestCase]
         public void Test_handle_UNSUB() {
             // Ensure the subscribers list is empty
             // and no data was written to the mocked console
-            Assert.AreEqual(ServerProgram.SUBSCRIBERS.Count, 0);
-            Assert.AreEqual(ServerProgram.SUBSCRIBERS.Count, 0);
+            Assert.AreEqual(this._serverRoom.SUBSCRIBERS.Count, 0);
+            Assert.AreEqual(this._serverRoom.SUBSCRIBERS.Count, 0);
             Assert.IsEmpty(this._textWriter.ToString());
 
             // Simulate the SUB command to add a dummy subscriber
-            ServerProgram.handle_SUB(null, TestEndPoint());
-            Assert.AreEqual(ServerProgram.SUBSCRIBERS.Count, 1);
+            this._serverRoom.handle_SUB(null, TestEndPoint());
+            Assert.AreEqual(this._serverRoom.SUBSCRIBERS.Count, 1);
 
             // Ensure the alert was written to the console
             Assert.That(this.ReadTextWritter(), Does.EndWith(" just subscribed!"));
 
             // Try to unsubscribe
-            ServerProgram.handle_UNSUB(null, TestEndPoint());
-            Assert.AreEqual(ServerProgram.SUBSCRIBERS.Count, 0);
+            this._serverRoom.handle_UNSUB(null, TestEndPoint());
+            Assert.AreEqual(this._serverRoom.SUBSCRIBERS.Count, 0);
 
             // Ensure the alert was written to the console
             Assert.That(this.ReadTextWritter(), Does.EndWith(" just unsubscribed!"));
         }
 
         /// <summary>
-        /// Ensure the <see cref="ServerProgram.handle_UNSUB"/>
+        /// Ensure the <see cref="ServerRoom.handle_UNSUB"/>
         /// does not crash when requested to unsubscribe a non subscriber.
         /// </summary>
         [TestCase]
         public void Test_handle_UNSUB_withoutBeingSubscribed() {
             // Ensure the subscribers list is empty
             // and no data was written to the mocked console
-            Assert.AreEqual(ServerProgram.SUBSCRIBERS.Count, 0);
+            Assert.AreEqual(this._serverRoom.SUBSCRIBERS.Count, 0);
             Assert.IsEmpty(this._textWriter.ToString());
 
             // Try to unsubscribe a non subscribed endpoint
-            ServerProgram.handle_UNSUB(null, TestEndPoint());
+            this._serverRoom.handle_UNSUB(null, TestEndPoint());
 
             // Ensure no alert was written to the console,
             // meaning nothing was done, as expected

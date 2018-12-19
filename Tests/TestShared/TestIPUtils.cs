@@ -14,9 +14,9 @@ namespace Tests.TestShared {
         /// <param name="expectedIP">The expected IP to be found</param>
         /// <param name="expectedPort">The expected port to be found</param>
         [TestCase("62.0.0.2", "62.0.0.2", DefaultConfig.DEFAULT_SERVER_PORT)]
-        [TestCase("127.0.0.1:5000", "127.0.0.1", 5000)]
+        [TestCase("127.0.0.1:5000", "127.0.0.1", (ushort)5000)]
         public void Test_TryParseEndpoint_withValidData(
-            string inputString, string expectedIP, short expectedPort) {
+            string inputString, string expectedIP, ushort expectedPort) {
 
             // Parse the input string
             var isParseSuccess =

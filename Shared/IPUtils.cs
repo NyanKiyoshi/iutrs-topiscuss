@@ -28,7 +28,7 @@ namespace Shared {
             var port = DefaultConfig.DEFAULT_SERVER_PORT;
 
             // Attempt to parse the port if provided.
-            var portIsInvalid = receivedEndpoint.Length > 1 && !short.TryParse(receivedEndpoint[1], out port);
+            var portIsInvalid = receivedEndpoint.Length > 1 && !ushort.TryParse(receivedEndpoint[1], out port);
 
             // If the port is invalid or the IP address is invalid,
             // abort and report the error.

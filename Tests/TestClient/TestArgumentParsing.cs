@@ -95,8 +95,8 @@ namespace Tests.TestClient {
         /// </summary>
         [TestCase]
         public void Test_ParseArgs_WithValidData() {
-            var expectedEndPoint = new IPEndPoint(IPAddress.Loopback, 5000);
-            ClientProgram.ParseArgs(new []{"127.0.0.1:5000"}, out var serverEndpoint);
+            var expectedEndPoint = new IPEndPoint(IPAddress.Loopback, 64000);
+            ClientProgram.ParseArgs(new []{"127.0.0.1:64000"}, out var serverEndpoint);
             Assert.AreEqual(serverEndpoint, expectedEndPoint);
         }
 

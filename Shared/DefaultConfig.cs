@@ -5,7 +5,7 @@ namespace Shared {
     /// The default client and server shared config.
     /// </summary>
     public static class DefaultConfig {
-        public const short DEFAULT_SERVER_PORT = 6000;
+        public const ushort DEFAULT_SERVER_PORT = 6000;
         public static readonly IPAddress DEFAULT_SERVER_HOST = IPAddress.Loopback;
 
         /// <summary>
