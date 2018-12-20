@@ -1,25 +1,48 @@
 using System;
 using System.Net.Sockets;
 using System.Windows.Forms;
+using Client;
 
 namespace TronClient {
     // Form du lobby
     public partial class FormLobby : Form {
         private Client _myClient;
+        private DisposableClient _disposableChatClient;
+        private string ChatText = string.Empty;
 
         public FormLobby() {
             this.InitializeComponent();
             this.commandBox.Items.AddRange(Enum.GetNames(typeof(Shared.Command)));
+            this.commandBox.SelectedItem = Shared.Command.POST;
             this.inputBox.KeyUp += OnKeyUpChatBox;
+
+            this._disposableChatClient = new DisposableClient(
+                new System.Net.IPEndPoint(
+                    Shared.DefaultConfig.DEFAULT_SERVER_HOST,
+                    Shared.DefaultConfig.DEFAULT_SERVER_PORT
+                )
+            );
+            this._disposableChatClient.MessageReceivedEvent += (receivedMessage, remoteEndpoint) => {
+                this.ChatText += Environment.NewLine + receivedMessage;
+                this.Invalidate();
+            };
+        }
+
+        protected override void OnPaint(PaintEventArgs e) {
+            base.OnPaint(e);
+            this.richTextBox1.Text = this.ChatText;
         }
 
         protected override void OnLoad(EventArgs e) {
             this.ActiveControl = this.inputBox;
             this.inputBox.Focus();
+            this._disposableChatClient.SendMessage(new Shared.ChatMessage(
+                Shared.Command.SUB, Shared.CommandType.REQUEST, "Client", ""));
         }
 
         protected void OnKeyUpChatBox(object sender, KeyEventArgs e) {
-            if (e.KeyCode == Keys.Return) {
+            if (e.KeyCode == Keys.Return && this.commandBox.SelectedItem != null) {
+                var selectedCommand = (Shared.Command)this.commandBox.SelectedItem;
                 e.Handled = true;
             }
         }

@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\TronLib\TronLib.csproj" />
     <ProjectReference Include="..\Shared\Shared.csproj" />
+    <ProjectReference Include="..\Client\Client.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -14,6 +14,7 @@ namespace TronClient {
                 components.Dispose();
             }
             base.Dispose(disposing);
+            this._disposableChatClient.Dispose();
         }
 
         #region Windows Form Designer generated code
