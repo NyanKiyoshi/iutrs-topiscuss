@@ -1,4 +1,5 @@
 using System;
+using System.Net.Sockets;
 using System.Windows.Forms;
 
 namespace TronClient {
@@ -16,8 +17,17 @@ namespace TronClient {
             this._myClient = new Client(textBoxIP.Text, int.Parse(textBoxPort.Text));
 
             // Création et affichage de la Form de jeu
-            var myFormTron = new FormTron(_myClient);
-            myFormTron.Show();
+            try {
+                var myFormTron = new FormTron(_myClient);
+                myFormTron.Show();
+            }
+            catch (SocketException exc) {
+                MessageBox.Show(
+                    this,
+                    "Erreur de connexion ! " + exc.Message,
+                    "Erreur de connexion",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         // Appelé au click sur le bouton start

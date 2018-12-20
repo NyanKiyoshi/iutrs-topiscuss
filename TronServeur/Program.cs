@@ -1,48 +1,156 @@
+using System;
+using System.Net;
+using System.Net.Sockets;
 
 namespace TronServeur {
     public class Program {
-        public static void Main(string[] args) {
-            TronLib.Tron myTron;            // Moteur du jeu
+        private TronLib.Tron _myTron;
+        private Socket _listenSocket;
+        private Socket[] _listConnectedSockets;
 
-            byte nJoueurs = 2;      // Nombre de joueurs
-            byte frequence = 10;    // Temps du tour de jeu (en dixieme de s)
-            byte taille = 60;       // Taille du terrain
+        private readonly byte _nJoueurs;    // Nombre de joueurs
+        private readonly byte _frequence;   // Temps du tour de jeu (en dixieme de s)
+        private readonly byte _taille;      // Taille du terrain
 
-            // ************************************* Intitialisation partie
-            System.Console.WriteLine("Initialisation");
+        public Program(byte nJoueurs, byte frequence, byte tailleTerrain) {
+            this._nJoueurs = nJoueurs;
+            this._frequence = frequence;
+            this._taille = tailleTerrain;
+        }
 
-            // TODO Creation de la socket d'écoute TCP
+        public void Start() {
+            Console.WriteLine("Initialisation");
+            Init();
 
-            // TODO Creation du tableau des sockets connectées
+            Console.WriteLine("Routine");
+            Routine();
+
+            Console.WriteLine("Conclusion");
+            Conclusion();
+        }
+
+        private void WaitForPlayers() {
+            Socket connectedSocket;
+
+            // Acceptation des clients pour chaque client (joueur)
+            for (byte numJoueur = 0; numJoueur < _nJoueurs; numJoueur++) {
+                Console.WriteLine("Attente d'une nouvelle connexion...");
+                connectedSocket = this._listenSocket.Accept();
+                Console.WriteLine("Nouveau client connecté : {0}", connectedSocket.RemoteEndPoint);
+                this._listConnectedSockets[numJoueur] = connectedSocket;
+            }
+        }
+
+        private void SendParameters() {
+            for (byte numJoueur = 0; numJoueur < this._nJoueurs; numJoueur++) {
+                var bufferParameters = new byte[4] {
+                    _taille, this._nJoueurs, numJoueur, this._frequence };
+                var nBytesParameters = this._listConnectedSockets[numJoueur].Send(
+                        bufferParameters, 0, bufferParameters.Length, SocketFlags.None);
+
+                Console.WriteLine(
+                    "Envoi des parametres vers le joueur {0} ({1} octets)",
+                    this._listConnectedSockets[numJoueur].RemoteEndPoint, nBytesParameters);
+            }
+        }
+
+        private void Init() {
+            // Creation de la socket d'écoute TCP
+            this._listenSocket =
+                new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+            // Creation du tableau des sockets connectées
+            this._listConnectedSockets = new Socket[_nJoueurs];
 
             // Creation du moteur de jeu
-            myTron = new TronLib.Tron(nJoueurs, taille);
+            this._myTron = new TronLib.Tron(this._nJoueurs, this._taille);
 
-            // TODO Bind et listen
+            // Bind et listen
+            this._listenSocket.Bind(new IPEndPoint(IPAddress.Any, 8000));
+            this._listenSocket.Listen(_nJoueurs);
 
-            // TODO Acceptation des clients
+            // Attend que les joueurs soient là
+            this.WaitForPlayers();
 
-            // TODO Envoie des paramètres
+            // Envoi des paramètres pour chaque client (joueur)
+            this.SendParameters();
+        }
 
-            // ************************************* Routine à chaque tour
-            System.Console.WriteLine("Routine");
+        private void RetrievePositions(byte[] listDirections) {
+            for (byte numJoueur = 0; numJoueur < this._nJoueurs; numJoueur++) {
+                var connectedSock = this._listConnectedSockets[numJoueur];
+                if (connectedSock == null) continue;
+
+                try {
+                    // Réception de la direction de chaque joueur
+                    var bufferDirections = new byte[1];
+                    connectedSock.Receive(bufferDirections, bufferDirections.Length, SocketFlags.None);
+                    listDirections[numJoueur] = bufferDirections[0];
+
+                    Console.WriteLine(
+                        "Reception de la direction du client {0} : {1}", connectedSock, listDirections[numJoueur]);
+                }
+                catch (SocketException) {
+                    this._listConnectedSockets[numJoueur] = null;
+                }
+            }
+        }
+
+        private void SendPositions(byte[] listDirections) {
+            for (byte numJoueur = 0; numJoueur < _nJoueurs; numJoueur++) {
+                var connectedSock = this._listConnectedSockets[numJoueur];
+                if (connectedSock == null) continue;
+
+                try {
+                    connectedSock.Send(
+                        this._myTron.GetDirections(),
+                        this._myTron.GetDirections().Length, SocketFlags.None);
+                    Console.WriteLine(
+                        "Envoi de la liste des directions au client {0}", this._listConnectedSockets[numJoueur]);
+                }
+                catch (SocketException) {
+                    this._listConnectedSockets[numJoueur] = null;
+                }
+            }
+        }
+
+        private void Routine() {
+            // liste de la commande des joueurs dans le tour courant 
+            var listDirections = new byte[this._nJoueurs];
 
             // Tant que la partie n'est pas finie
-            while (!myTron.IsFinished()) {
-                // TODO Réception de la direction de chaque joueur
+            while (!this._myTron.IsFinished()) {
+                this.RetrievePositions(listDirections);
+                this._myTron.SetDirections(listDirections);
 
-                // TODO Calcul collision : myTron.Collision(byte[] <toutes les directions>);
+                // Calcul collision : myTron.Collision(byte[] <toutes les directions>);
+                this._myTron.Collision(listDirections);
 
-                // TODO Envoie des directions de tous les joueurs à tous les clients
+                // Envoie des directions de tous les joueurs à tous les clients
+                this.SendPositions(listDirections);
+            }
+        }
+
+        private void Conclusion() {
+            // Fermeture des sockets connectées
+            foreach (var connectedSocket in this._listConnectedSockets) {
+                if (connectedSocket != null) {
+                    connectedSocket.Close();
+                }
             }
 
+            // Fermeture socket d'écoute
+            this._listenSocket.Close();
+        }
 
-            // ************************************* Conclusion
-            System.Console.WriteLine("Conclusion");
+        public static void Main(string[] args) {
+            byte numJoueurs;
 
-            // TODO Fermeture des sockets connectées
+            do {
+                Console.Write("Nombre de joueurs : ");
+            } while (!byte.TryParse(Console.ReadLine(), out numJoueurs) || numJoueurs < 2);
 
-            // TODO Fermeture socket d'écoute
+            new Program(numJoueurs, 1, 60).Start();
         }
     }
 }
