@@ -3,7 +3,10 @@ latex/
 out/
 bin/
 obj/
+packaging/
 docs-build/
 *.exe
 *.zip
 *.tmp
+*.lnk
+
