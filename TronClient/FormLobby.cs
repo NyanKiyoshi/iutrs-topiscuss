@@ -6,12 +6,17 @@ using Client;
 namespace TronClient {
     // Form du lobby
     public partial class FormLobby : Form {
+        private readonly string nickname;
+
         private Client _myClient;
         private DisposableClient _disposableChatClient;
         private string ChatText = string.Empty;
 
-        public FormLobby() {
+        public FormLobby(string nickname) {
+            this.nickname = nickname;
+
             this.InitializeComponent();
+            
             this.commandBox.Items.AddRange(Enum.GetNames(typeof(Shared.Command)));
             this.commandBox.SelectedItem = Shared.Command.POST;
             this.inputBox.KeyUp += OnKeyUpChatBox;
@@ -44,6 +49,7 @@ namespace TronClient {
             if (e.KeyCode == Keys.Return && this.commandBox.SelectedItem != null) {
                 var selectedCommand = (Shared.Command)this.commandBox.SelectedItem;
                 e.Handled = true;
+                
             }
         }
 

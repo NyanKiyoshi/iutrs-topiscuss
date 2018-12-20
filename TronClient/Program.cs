@@ -11,7 +11,14 @@ namespace TronClient {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
-            var myFormLobby = new FormLobby();
+            var promptForm = new InputBox(
+                "What opacity? (byte)", DEFAULT_OPACITY.ToString());
+
+            if (promptForm.ShowDialog() != DialogResult.OK) {
+                Environment.Exit(0);
+            }
+
+            var myFormLobby = new FormLobby(promptForm.InputText);
             Application.Run(myFormLobby);
         }
     }
