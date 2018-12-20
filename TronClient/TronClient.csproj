@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TronLib\TronLib.csproj" />
+    <ProjectReference Include="..\Shared\Shared.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -9,6 +9,19 @@ namespace TronClient {
 
         public FormLobby() {
             this.InitializeComponent();
+            this.commandBox.Items.AddRange(Enum.GetNames(typeof(Shared.Command)));
+            this.inputBox.KeyUp += OnKeyUpChatBox;
+        }
+
+        protected override void OnLoad(EventArgs e) {
+            this.ActiveControl = this.inputBox;
+            this.inputBox.Focus();
+        }
+
+        protected void OnKeyUpChatBox(object sender, KeyEventArgs e) {
+            if (e.KeyCode == Keys.Return) {
+                e.Handled = true;
+            }
         }
 
         // Lance la partie
